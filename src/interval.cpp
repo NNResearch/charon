@@ -24,7 +24,7 @@ Interval::Interval(Vec l, Vec u): lower{l}, upper{u} {
 Interval::Interval(): lower{Vec(0)}, upper{Vec(0)} {}
 
 Interval::Interval(std::string filename) {
-    cout << "Property file is: " << filename << "\n";
+    // cout << "Property file is: " << filename << "\n";
     std::vector<double> low;
     std::vector<double> upp;
     std::ifstream in(filename.c_str());
@@ -49,8 +49,8 @@ Interval::Interval(std::string filename) {
             this->posDims.push_back(i);
         }
     }
-    cout << " lower vector: " << this->lower << "\n";
-    cout << " upper vector: " << this->upper << "\n";
+    // cout << " lower vector: " << this->lower << "\n";
+    // cout << " upper vector: " << this->upper << "\n";
 }
 
 elina_interval_t** Interval::get_elina_interval() const {
