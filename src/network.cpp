@@ -42,27 +42,22 @@ Tensor relu(const Tensor& x) {
     return y;
 }
 
-Layer::Layer(int iw, int ih, int id, int ow, int oh, int od) :
-    input_width{iw}, input_height{ih}, input_depth{id}, output_width{ow},
-    output_height{oh}, output_depth{od} {}
+Layer::Layer(int iw, int ih, int id, int ow, int oh, int od) : input_width{iw}, input_height{ih}, input_depth{id}, output_width{ow}, output_height{oh}, output_depth{od} {}
 
-    MaxPoolLayer::MaxPoolLayer(int ww, int wh, int iw, int ih, int d) :
-        Layer(iw, ih, d, iw / ww, ih / wh, d), window_width(ww), window_height(wh) {
-            if (iw % ww != 0 || ih % wh != 0) {
-                throw std::runtime_error("Bad initialization of MaxPoolLayer");
-            }
-        }
+MaxPoolLayer::MaxPoolLayer(int ww, int wh, int iw, int ih, int d) : Layer(iw, ih, d, iw / ww, ih / wh, d), window_width(ww), window_height(wh) {
+    if (iw % ww != 0 || ih % wh != 0) {
+        throw std::runtime_error("Bad initialization of MaxPoolLayer");
+    }
+}
 
 LayerType MaxPoolLayer::get_type() const {
     return MP;
 }
 
-Tensor MaxPoolLayer::evaluate(
-        const Tensor& x) const {
+Tensor MaxPoolLayer::evaluate(const Tensor& x) const {
     Tensor ret;
     for (int k = 0; k < input_depth; k++) {
-        ret.push_back(Mat(input_height / window_height,
-                    input_width / window_width));
+        ret.push_back(Mat(input_height / window_height, input_width / window_width));
         for (int i = 0; i < input_height / window_height; i++) {
             for (int j = 0; j < input_width / window_width; j++) {
                 double max = -std::numeric_limits<double>::max();
@@ -80,9 +75,7 @@ Tensor MaxPoolLayer::evaluate(
     return ret;
 }
 
-Tensor MaxPoolLayer::backpropagate(
-        const Tensor& eval,
-        const Tensor& grad) const {
+Tensor MaxPoolLayer::backpropagate(const Tensor& eval, const Tensor& grad) const {
     Tensor ret;
     for (int i = 0; i < input_depth; i++) {
         ret.push_back(Mat(input_height, input_width));
@@ -191,27 +184,23 @@ Powerset MaxPoolLayer::propagate_powerset(const Powerset& pow) const {
 
 FCLayer::FCLayer() : Layer(0, 0, 0, 0, 0, 0) {}
 
-FCLayer::FCLayer(const Mat& w, const Vec& b) :
-    Layer(1, w.cols(), 1, 1, b.size(), 1), weight{w}, bias{b} {
-        if (w.rows() != b.size()) {
-            throw std::runtime_error("Bad initialization of FCLayer");
-        }
+FCLayer::FCLayer(const Mat& w, const Vec& b) : Layer(1, w.cols(), 1, 1, b.size(), 1), weight{w}, bias{b} {
+    if (w.rows() != b.size()) {
+        throw std::runtime_error("Bad initialization of FCLayer");
     }
+}
 
-FCLayer::FCLayer(const Mat& w, const Vec& b, int iw,
-        int ih, int id, int ow, int oh, int od) :
-    Layer(iw, ih, id, ow, oh, od), weight{w}, bias{b} {
-        if (w.rows() != b.size()) {
-            throw std::runtime_error("Bad initialization of FCLayer");
-        }
+FCLayer::FCLayer(const Mat& w, const Vec& b, int iw, int ih, int id, int ow, int oh, int od) : Layer(iw, ih, id, ow, oh, od), weight{w}, bias{b} {
+    if (w.rows() != b.size()) {
+        throw std::runtime_error("Bad initialization of FCLayer");
     }
+}
 
 LayerType FCLayer::get_type() const {
     return FC;
 }
 
-Tensor FCLayer::evaluate(
-        const Tensor& x) const {
+Tensor FCLayer::evaluate( const Tensor& x) const {
     // Serialize the input tensor
     Vec x_v(input_width * input_depth * input_height);
     for (int i = 0; i < input_depth; i++) {
@@ -240,9 +229,7 @@ Tensor FCLayer::evaluate(
     return ret;
 }
 
-Tensor FCLayer::backpropagate(
-        const Tensor& eval,
-        const Tensor& grad) const {
+Tensor FCLayer::backpropagate(const Tensor& eval, const Tensor& grad) const {
     Vec grad_v(output_width * output_depth * output_height);
     for (int i = 0; i < output_depth; i++) {
         for (int j = 0; j < output_height; j++) {
@@ -321,10 +308,8 @@ double Filter::dot_product(const Filter& other) const {
     return sum;
 }
 
-ConvLayer::ConvLayer(const std::vector<Filter>& fs,
-        const std::vector<double>& bs, int iw, int ih) :
-    Layer(iw, ih, fs[0].get_depth(), iw - fs[0].get_width() + 1,
-            ih - fs[0].get_height() + 1, fs.size()),
+ConvLayer::ConvLayer(const std::vector<Filter>& fs, const std::vector<double>& bs, int iw, int ih) :
+    Layer(iw, ih, fs[0].get_depth(), iw - fs[0].get_width() + 1, ih - fs[0].get_height() + 1, fs.size()),
     filter_width{fs[0].get_width()}, filter_height{fs[0].get_height()},
     filter_depth{fs[0].get_depth()}, num_filters(fs.size()), filters(fs),
     biases{bs} {
@@ -361,8 +346,7 @@ LayerType ConvLayer::get_type() const {
     return CONV;
 }
 
-Tensor ConvLayer::evaluate(
-        const Tensor& x) const {
+Tensor ConvLayer::evaluate(const Tensor& x) const {
     Tensor ret;
     for (int k = 0; k < num_filters; k++) {
         ret.push_back(Mat(output_height, output_width));
@@ -384,9 +368,7 @@ Tensor ConvLayer::evaluate(
     return ret;
 }
 
-Tensor ConvLayer::backpropagate(
-        const Tensor& eval,
-        const Tensor& grad) const {
+Tensor ConvLayer::backpropagate(const Tensor& eval, const Tensor& grad) const {
     return fc.backpropagate(eval, grad);
 }
 
@@ -394,8 +376,7 @@ Powerset ConvLayer::propagate_powerset(const Powerset& p) const {
     int out_size = output_height * output_width * output_depth;
     int filter_size = filter_height * filter_width * filter_depth;
     elina_dim_t* dims = (elina_dim_t*) malloc(out_size * sizeof(elina_dim_t));
-    elina_linexpr0_t** update = (elina_linexpr0_t**) malloc(
-            out_size * sizeof(elina_linexpr0_t*));
+    elina_linexpr0_t** update = (elina_linexpr0_t**) malloc(out_size * sizeof(elina_linexpr0_t*));
     for (int i = 0; i < output_height; i++) {
         for (int j = 0; j < output_width; j++) {
             for (int k = 0; k < output_depth; k++) {
@@ -427,15 +408,10 @@ Powerset ConvLayer::propagate_powerset(const Powerset& p) const {
     return ret;
 }
 
-Network::Network() : num_layers{0}, input_width{0}, input_height{0}, input_depth{0},
-    output_size{0}, layer_widths{{}}, layer_heights{{}},
-    layer_depths{{}}, layers{{}} {}
+Network::Network() : num_layers{0}, input_width{0}, input_height{0}, input_depth{0}, output_size{0}, layer_widths{{}}, layer_heights{{}}, layer_depths{{}}, layers{{}} {}
 
-Network::Network(int nl, int id, int iw, int ih, int os, std::vector<int> lws,
-        std::vector<int> lhs, std::vector<int> lds, std::vector<std::shared_ptr<Layer>> ls)
-    : num_layers{nl}, input_width{iw}, input_height{ih}, input_depth{id}, output_size{os},
-    layer_widths(lws), layer_heights(lhs), layer_depths(lds),
-    layers(ls) {}
+Network::Network(int nl, int id, int iw, int ih, int os, std::vector<int> lws, std::vector<int> lhs, std::vector<int> lds, std::vector<std::shared_ptr<Layer>> ls)
+    : num_layers{nl}, input_width{iw}, input_height{ih}, input_depth{id}, output_size{os}, layer_widths(lws), layer_heights(lhs), layer_depths(lds), layers(ls) {}
 
     Vec Network::evaluate(const Vec& input) const {
         Tensor in;
@@ -558,8 +534,7 @@ Mat parse_matrix(std::string s) {
     return m;
 }
 
-std::vector<Filter> parse_filters(std::string s,
-        int num_filters, int kernel_width, int kernel_height, int kernel_depth) {
+std::vector<Filter> parse_filters(std::string s, int num_filters, int kernel_width, int kernel_height, int kernel_depth) {
     // x[a][b][c][d] is the element at row a, column b, depth c in filter d
     double data[kernel_height][kernel_width][kernel_depth][num_filters];
     int i = 0, j = 0, k = 0, l = -1;
