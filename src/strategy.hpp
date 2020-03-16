@@ -22,8 +22,8 @@
  * `Powerset` class.
  */
 enum Domain {
-  IntervalDomain,
-  ZonotopeDomain,
+    IntervalDomain,
+    ZonotopeDomain,
 };
 
 /** Set up a default domain to use */
@@ -34,51 +34,51 @@ class timeout_exception: public std::exception {};
 
 /** An input to the proof and counterexample search. */
 typedef struct abstractInput{
-  /** The number of disjuncts to use. */
-  int disjuncts;
-  /** The underlying domain for the powerset. */
-  Domain domain;
-  /** The input property to analyze. */
-  Interval property;
+    /** The number of disjuncts to use. */
+    int disjuncts;
+    /** The underlying domain for the powerset. */
+    Domain domain;
+    /** The input property to analyze. */
+    Interval property;
 } AbstractInput;
 
 /** A result from the proof and counterexample search. */
 typedef struct abstractResult {
-  /** Whether or not the property was verified. */
-  bool verified;
-  /** Whether or not the property was falsified. */
-  bool falsified;
-  /** The counterexample if falsified is true. */
-  Eigen::VectorXd counterexample;
-  /** The interval which was analyzed. */
-  Interval interval;
-  /** The output of each layer of the network. */
-  std::vector<Powerset> layerOutputs;
-  /** The target class of the robustness property. */
-  int maxInd;
+    /** Whether or not the property was verified. */
+    bool verified;
+    /** Whether or not the property was falsified. */
+    bool falsified;
+    /** The counterexample if falsified is true. */
+    Eigen::VectorXd counterexample;
+    /** The interval which was analyzed. */
+    Interval interval;
+    /** The output of each layer of the network. */
+    std::vector<Powerset> layerOutputs;
+    /** The target class of the robustness property. */
+    int maxInd;
 } AbstractResult;
 
 /** Parameters produced by a verification policy. */
 typedef struct policyParams {
-  /** The offset to split the input region at. */
-  double split_offset;
-  /** The number of disjuncts to use for the left half of the split. */
-  int num_disjuncts_left;
-  /** The number of disjuncts to use for the right half of the split. */
-  int num_disjuncts_right;
-  /** The underlying domain to use for the left half of the split. */
-  Domain left_domain;
-  /** The underlying domain to use for the right half of the split. */
-  Domain right_domain;
-  /** The dimension to split on. */
-  uint dimension;
+    /** The offset to split the input region at. */
+    double split_offset;
+    /** The number of disjuncts to use for the left half of the split. */
+    int num_disjuncts_left;
+    /** The number of disjuncts to use for the right half of the split. */
+    int num_disjuncts_right;
+    /** The underlying domain to use for the left half of the split. */
+    Domain left_domain;
+    /** The underlying domain to use for the right half of the split. */
+    Domain right_domain;
+    /** The dimension to split on. */
+    uint dimension;
 } PolicyParams;
 
 uint back_prop(const Network &net,
-               const Interval &input,
-               bool &concretize,
-               const int maxInd,
-               const std::vector<Powerset> &layerOutputs);
+        const Interval &input,
+        bool &concretize,
+        const int maxInd,
+        const std::vector<Powerset> &layerOutputs);
 
 /**
  * An abstract class used to represent the featurization and selection
@@ -86,74 +86,74 @@ uint back_prop(const Network &net,
  * strategy, although only one concrete implementation is given.
  */
 class StrategyInterpretation {
-  public:
-    virtual ~StrategyInterpretation();
-    /** The number of features used to choose a domain. */
-    virtual int domain_input_size() const = 0;
-    /** The number of outputs from the domain strategy. */
-    virtual int domain_output_size() const = 0;
-    /** The number of features used to choose a partition. */
-    virtual int split_input_size() const = 0;
-    /** The number of outputs from the partition strategy. */
-    virtual int split_output_size() const = 0;
+    public:
+        virtual ~StrategyInterpretation();
+        /** The number of features used to choose a domain. */
+        virtual int domain_input_size() const = 0;
+        /** The number of outputs from the domain strategy. */
+        virtual int domain_output_size() const = 0;
+        /** The number of features used to choose a partition. */
+        virtual int split_input_size() const = 0;
+        /** The number of outputs from the partition strategy. */
+        virtual int split_output_size() const = 0;
 
-    /**
-     * Extract features from the input to a verification policy.
-     *
-     * \param net The network being analyzed.
-     * \param input_space The space being analyzed.
-     * \param counterexample The value returned from the counterexample search.
-     * \return A set of features to use when choosing a domain.
-     */
-    virtual Eigen::VectorXd domain_featurize(
-        const Network& net,
-        const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const = 0;
+        /**
+         * Extract features from the input to a verification policy.
+         *
+         * \param net The network being analyzed.
+         * \param input_space The space being analyzed.
+         * \param counterexample The value returned from the counterexample search.
+         * \return A set of features to use when choosing a domain.
+         */
+        virtual Eigen::VectorXd domain_featurize(
+                const Network& net,
+                const Interval& input_space,
+                const Eigen::VectorXd& counterexample) const = 0;
 
-    /**
-     * Choose a domain from the output of the strategy.
-     *
-     * \param strategy_output The output of the strategy.
-     * \param net The network being analyzed.
-     * \param counterexample The result of the counterexample search.
-     * \param domain A reference to be filled with the domain to use.
-     * \param num_disjuncts A reference to be filled with the size of powerset.
-     */
-    virtual void domain_extract(
-        const Eigen::VectorXd& strategy_output,
-        const Network& net,
-        const Eigen::VectorXd& counterexample,
-        Domain& domain,
-        int& num_disjuncts) const = 0;
+        /**
+         * Choose a domain from the output of the strategy.
+         *
+         * \param strategy_output The output of the strategy.
+         * \param net The network being analyzed.
+         * \param counterexample The result of the counterexample search.
+         * \param domain A reference to be filled with the domain to use.
+         * \param num_disjuncts A reference to be filled with the size of powerset.
+         */
+        virtual void domain_extract(
+                const Eigen::VectorXd& strategy_output,
+                const Network& net,
+                const Eigen::VectorXd& counterexample,
+                Domain& domain,
+                int& num_disjuncts) const = 0;
 
-    /**
-     * Extract features from the input to a verification policy.
-     *
-     * \param net The network being analyzed.
-     * \param input_space The space being analyzed.
-     * \param counterexample The value returned from the counterexample search.
-     * \return A set of features to use when choosing a domain.
-     */
-    virtual Eigen::VectorXd split_featurize(
-        const Network& net,
-        const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const = 0;
+        /**
+         * Extract features from the input to a verification policy.
+         *
+         * \param net The network being analyzed.
+         * \param input_space The space being analyzed.
+         * \param counterexample The value returned from the counterexample search.
+         * \return A set of features to use when choosing a domain.
+         */
+        virtual Eigen::VectorXd split_featurize(
+                const Network& net,
+                const Interval& input_space,
+                const Eigen::VectorXd& counterexample) const = 0;
 
-    /**
-     * Choose a partition from the output of the strategy.
-     *
-     * \param strategy_output The output of the strategy.
-     * \param net The network being analyzed.
-     * \param counterexample The result of the counterexample search.
-     * \param domain A reference to be filled with the domain to use.
-     * \param num_disjuncts A reference to be filled with the size of powerset.
-     */
-    virtual void split_extract(
-        const Eigen::VectorXd& strategy_output,
-        const Network& net,
-        const AbstractResult& ar,
-        double& split_offset,
-        uint& dimension) const = 0;
+        /**
+         * Choose a partition from the output of the strategy.
+         *
+         * \param strategy_output The output of the strategy.
+         * \param net The network being analyzed.
+         * \param counterexample The result of the counterexample search.
+         * \param domain A reference to be filled with the domain to use.
+         * \param num_disjuncts A reference to be filled with the size of powerset.
+         */
+        virtual void split_extract(
+                const Eigen::VectorXd& strategy_output,
+                const Network& net,
+                const AbstractResult& ar,
+                double& split_offset,
+                uint& dimension) const = 0;
 };
 
 /**
@@ -161,43 +161,43 @@ class StrategyInterpretation {
  * evaluation in the paper.
  */
 class BayesianStrategy : public StrategyInterpretation {
-  public:
-    int domain_input_size() const {
-      return 5;
-    }
+    public:
+        int domain_input_size() const {
+            return 5;
+        }
 
-    int domain_output_size() const {
-      return 2;
-    }
+        int domain_output_size() const {
+            return 2;
+        }
 
-    int split_input_size() const {
-      return 5;
-    }
+        int split_input_size() const {
+            return 5;
+        }
 
-    int split_output_size() const {
-      return 2;
-    }
+        int split_output_size() const {
+            return 2;
+        }
 
-    Eigen::VectorXd domain_featurize(
-        const Network& net,
-        const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const override;
-    void domain_extract(
-        const Eigen::VectorXd& strategy_output,
-        const Network& net,
-        const Eigen::VectorXd& counterexample,
-        Domain& domain,
-        int& num_disjuncts) const override;
-    Eigen::VectorXd split_featurize(
-        const Network& net,
-        const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const override;
-    void split_extract(
-        const Eigen::VectorXd& strategy_output,
-        const Network& net,
-        const AbstractResult& ar,
-        double& split_offset,
-        uint& dimension) const override;
+        Eigen::VectorXd domain_featurize(
+                const Network& net,
+                const Interval& input_space,
+                const Eigen::VectorXd& counterexample) const override;
+        void domain_extract(
+                const Eigen::VectorXd& strategy_output,
+                const Network& net,
+                const Eigen::VectorXd& counterexample,
+                Domain& domain,
+                int& num_disjuncts) const override;
+        Eigen::VectorXd split_featurize(
+                const Network& net,
+                const Interval& input_space,
+                const Eigen::VectorXd& counterexample) const override;
+        void split_extract(
+                const Eigen::VectorXd& strategy_output,
+                const Network& net,
+                const AbstractResult& ar,
+                double& split_offset,
+                uint& dimension) const override;
 
 };
 
@@ -254,15 +254,15 @@ PyObject* create_attack_from_network(const Network& n, PyObject* o);
  * \return `true` if the robustness property holds.
  */
 bool verify_with_strategy(const Eigen::VectorXd& original,
-                          const Interval& property,
-                          int max_ind,
-                          const Network& net,
-                          Eigen::VectorXd& counterexample,
-                          int& num_calls,
-                          const Eigen::MatrixXd& domain_strategy,
-                          const Eigen::MatrixXd& split_strategy,
-                          const StrategyInterpretation& interp,
-                          double timeout,
-                          PyObject* pgdAttack,
-                          PyObject* pFunc);
+        const Interval& property,
+        int max_ind,
+        const Network& net,
+        Eigen::VectorXd& counterexample,
+        int& num_calls,
+        const Eigen::MatrixXd& domain_strategy,
+        const Eigen::MatrixXd& split_strategy,
+        const StrategyInterpretation& interp,
+        double timeout,
+        PyObject* pgdAttack,
+        PyObject* pFunc);
 
