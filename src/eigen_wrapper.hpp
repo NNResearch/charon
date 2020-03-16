@@ -18,5 +18,4 @@ typedef Eigen::VectorXd Vec;
 typedef Eigen::MatrixXd Mat;
 typedef std::vector<Mat> Tensor; 
 
-
 #endif

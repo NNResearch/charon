@@ -8,7 +8,6 @@
 #include <exception>
 #include <random>
 #include <Python.h>
-#include "eigen_wrapper.hpp"
 #include <time.h>
 
 #include "network.hpp"

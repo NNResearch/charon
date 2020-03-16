@@ -16,7 +16,8 @@
 Abstract0::Abstract0(elina_manager_t* m, elina_abstract0_t* a): man{m}, value{a}, center_computed{false} {}
 
 Abstract0::Abstract0(const Abstract0& other): 
-    man{other.man}, value{elina_abstract0_copy(other.man, other.value)}, center{other.center}, center_computed{other.center_computed} {}
+    man{other.man}, value{elina_abstract0_copy(other.man, other.value)}, 
+    center{other.center}, center_computed{other.center_computed} {}
 
 Abstract0::Abstract0(Abstract0&& other): 
     man{other.man}, value{other.value}, center{other.center}, center_computed{other.center_computed} {
@@ -46,6 +47,8 @@ Abstract0& Abstract0::operator=(Abstract0&& other) {
     return *this;
 }
 
+
+
 Vec compute_center(elina_manager_t* man, elina_abstract0_t* abs) {
     elina_interval_t** itv;
     itv = elina_abstract0_to_box(man, abs);
@@ -67,24 +70,24 @@ Powerset::Powerset(const Powerset& other) {
 
 Powerset::Powerset(elina_manager_t* m, elina_abstract0_t* a, int s) {
     size = s;
-    disjuncts = std::vector<std::shared_ptr<Abstract0>>();
+    disjuncts = AbsVec();
     disjuncts.push_back(std::make_shared<Abstract0>(m, a));
 }
 
-Powerset::Powerset(std::vector<std::shared_ptr<Abstract0>>& ds, int s) {
+Powerset::Powerset(AbsVec& ds, int s) {
     size = s;
     disjuncts = ds;
 }
 
-Powerset::Powerset(std::vector<std::shared_ptr<Abstract0>>& ds,
+Powerset::Powerset(AbsVec& ds,
         std::vector<Vec>& cs, int s) {
     size = s;
-    disjuncts = std::vector<std::shared_ptr<Abstract0>>(ds);
+    disjuncts = AbsVec(ds);
 }
 
 Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** update, unsigned int size, unsigned int s) const {
-    std::vector<std::shared_ptr<Abstract0>> ds;
-    for (std::shared_ptr<Abstract0> it : this->disjuncts) {
+    AbsVec ds;
+    for (Abs it : this->disjuncts) {
         elina_abstract0_t* it_dim;
         size_t num_dims = elina_abstract0_dimension(it->man, it->value).realdim;
         if (s > num_dims) {
@@ -130,8 +133,8 @@ Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** up
 }
 
 Powerset Powerset::meet_lincons_array(elina_lincons0_array_t* cons) const {
-    std::vector<std::shared_ptr<Abstract0>> ds;
-    for (std::shared_ptr<Abstract0> it : this->disjuncts) {
+    AbsVec ds;
+    for (Abs it : this->disjuncts) {
         elina_abstract0_t* abs = elina_abstract0_meet_lincons_array( it->man, false, it->value, cons);
         bool bot = elina_abstract0_is_bottom(it->man, abs);
         // If this value is bottom it doesn't affect the powerset.
@@ -145,8 +148,8 @@ Powerset Powerset::meet_lincons_array(elina_lincons0_array_t* cons) const {
 }
 
 Powerset Powerset::permute_dimensions(elina_dimperm_t* dp) const {
-    std::vector<std::shared_ptr<Abstract0>> ds;
-    for (std::shared_ptr<Abstract0> it : this->disjuncts) {
+    AbsVec ds;
+    for (Abs it : this->disjuncts) {
         elina_abstract0_t* abs = elina_abstract0_permute_dimensions(
                 it->man, false, it->value, dp);
         ds.push_back(std::make_shared<Abstract0>(it->man, abs));
@@ -171,8 +174,8 @@ Powerset Powerset::permute_dimensions(elina_dimperm_t* dp) const {
 }
 
 Powerset Powerset::remove_dimensions(elina_dimchange_t* dc) const {
-    std::vector<std::shared_ptr<Abstract0>> ds;
-    for (std::shared_ptr<Abstract0> it : this->disjuncts) {
+    AbsVec ds;
+    for (Abs it : this->disjuncts) {
         elina_abstract0_t* abs = elina_abstract0_remove_dimensions(
                 it->man, false, it->value, dc);
         bool bot = elina_abstract0_is_bottom(it->man, abs);
@@ -186,8 +189,7 @@ Powerset Powerset::remove_dimensions(elina_dimchange_t* dc) const {
     Powerset p(ds, this->size);
     // Update centers
     if (disjuncts.size() > 0) {
-        unsigned int dims = elina_abstract0_dimension(
-                disjuncts[0]->man, disjuncts[0]->value).realdim;
+        unsigned int dims = elina_abstract0_dimension(disjuncts[0]->man, disjuncts[0]->value).realdim;
         unsigned int out_dims = dims - dc->realdim;
         for (unsigned int i = 0; i < disjuncts.size(); i++) {
             if (disjuncts[i]->center_computed) {
@@ -238,8 +240,7 @@ Powerset Powerset::affine(const Mat& m, const Vec& b) const {
 
 Powerset Powerset::relu() const {
     Powerset z = *this;
-    size_t num_dims = elina_abstract0_dimension(
-            disjuncts[0]->man, disjuncts[0]->value).realdim;
+    size_t num_dims = elina_abstract0_dimension(disjuncts[0]->man, disjuncts[0]->value).realdim;
     for (unsigned int i = 0; i < num_dims; i++) {
         // Create two linear constraints, so that we can meet z with
         // x_i <= 0 and x_i >= 0.
@@ -283,7 +284,7 @@ Powerset Powerset::join(const Powerset& other) const {
     } else if (other.disjuncts.size() == 0) {
         return *this;
     }
-    std::vector<std::shared_ptr<Abstract0>> ds(disjuncts);
+    AbsVec ds(disjuncts);
     ds.insert(ds.end(), other.disjuncts.begin(), other.disjuncts.end());
     // ds now holds all of the disjuncts from both powersets
     unsigned int s = std::max(size, other.size);
@@ -330,7 +331,7 @@ Powerset Powerset::join(const Powerset& other) const {
 
 bool Powerset::is_bottom() const {
     bool bottom = true;
-    for (std::shared_ptr<Abstract0> it : this->disjuncts) {
+    for (Abs it : this->disjuncts) {
         if (!elina_abstract0_is_bottom(it->man, it->value)) {
             bottom = false;
             break;

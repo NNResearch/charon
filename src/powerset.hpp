@@ -49,6 +49,9 @@ class Abstract0 {
         Abstract0& operator=(Abstract0&& other);
 };
 
+
+typedef std::shared_ptr<Abstract0> Abs;
+typedef std::vector<std::shared_ptr<Abstract0>> AbsVec;
 /**
  * Represents a bounded powerset of elements of some underlying abstract
  * domain. For some size N and abstract domain A, a powerset of of size N
@@ -59,15 +62,14 @@ class Powerset {
         /** The number of disjuncts in the domain. */
         int size;
         /** The disjuncts in this powerset. */
-        std::vector<std::shared_ptr<Abstract0>> disjuncts;
+        AbsVec disjuncts;
         /** Copy constructor. */
         Powerset(const Powerset&);
         Powerset(elina_manager_t* man, elina_abstract0_t*, int);
         /** Constructor when we need to compute centers. */
-        Powerset(std::vector<std::shared_ptr<Abstract0>>&, int);
+        Powerset(AbsVec&, int);
         /** Constructor when centers are known. */
-        Powerset(std::vector<std::shared_ptr<Abstract0>>&,
-                std::vector<Vec>&, int);
+        Powerset(AbsVec&, std::vector<Vec>&, int);
 
         /**
          * Apply some linear transformation to this powerset.
@@ -89,8 +91,7 @@ class Powerset {
          * \param cons The array of linear constraints to meet with.
          * \return The meet of this value with the constraints.
          */
-        Powerset meet_lincons_array(
-                elina_lincons0_array_t* cons) const;
+        Powerset meet_lincons_array(elina_lincons0_array_t* cons) const;
 
         /**
          * Permute the dimensions of this abstract value.

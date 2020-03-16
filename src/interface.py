@@ -10,7 +10,11 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import tensorflow.compat.v1 as tf 
+tf.disable_v2_behavior()
 
 class IntervalPGDAttack:
     def __init__(self, model, k, a, random_start, loss_func):

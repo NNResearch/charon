@@ -8,6 +8,9 @@
 
 #include <fstream>
 
+#include <iostream>
+using namespace std;
+
 Interval::Interval(Vec l, Vec u): lower{l}, upper{u} {
     if (l.size() != u.size()) {
         throw std::runtime_error("Length mismatch in Interval constructor");
@@ -21,6 +24,7 @@ Interval::Interval(Vec l, Vec u): lower{l}, upper{u} {
 Interval::Interval(): lower{Vec(0)}, upper{Vec(0)} {}
 
 Interval::Interval(std::string filename) {
+    cout << "Property file is: " << filename << "\n";
     std::vector<double> low;
     std::vector<double> upp;
     std::ifstream in(filename.c_str());
@@ -28,11 +32,11 @@ Interval::Interval(std::string filename) {
     while (getline(in, line)) {
         std::istringstream iss(line);
         double l, u;
-        iss.get();
-        iss >> l;
-        iss.get();
-        iss.get();
-        iss >> u;
+        iss.get(); // [
+        iss >> l; // lower bound
+        iss.get(); // ,
+        iss.get(); // space
+        iss >> u; // upper bound
         low.push_back(l);
         upp.push_back(u);
     }
@@ -40,16 +44,17 @@ Interval::Interval(std::string filename) {
     this->lower = Vec::Map(low.data(), low.size());
     this->upper = Vec::Map(upp.data(), upp.size());
 
-    for (int i = 0; i < low.size(); i++) {
+    for (uint i = 0; i < low.size(); i++) {
         if (upp[i] - low[i] > 0) {
             this->posDims.push_back(i);
         }
     }
+    cout << " lower vector: " << this->lower << "\n";
+    cout << " upper vector: " << this->upper << "\n";
 }
 
 elina_interval_t** Interval::get_elina_interval() const {
-    elina_interval_t** ret = (elina_interval_t**) malloc(
-            this->lower.size() * sizeof(elina_interval_t*));
+    elina_interval_t** ret = (elina_interval_t**) malloc(this->lower.size() * sizeof(elina_interval_t*));
     for (int i = 0; i < lower.size(); i++) {
         ret[i] = elina_interval_alloc();
         elina_interval_set_double(ret[i], this->lower(i), this->upper(i));

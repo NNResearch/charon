@@ -66,10 +66,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
          * \param ws The number of MPI processes.
          * \param prop_file A file containing several training properties.
          */
-        CegarOptimizer(size_t input_dimension, bayesopt::Parameters params,
-                const StrategyInterpretation& si, int ws, std::string prop_file):
-            bayesopt::ContinuousModel(input_dimension, params), strategy_interp(si),
-            world_size(ws) {
+        CegarOptimizer(size_t input_dimension, bayesopt::Parameters params, const StrategyInterpretation& si, int ws, std::string prop_file):
+            bayesopt::ContinuousModel(input_dimension, params), strategy_interp(si), world_size(ws) {
                 std::string line;
                 std::ifstream fd(prop_file);
                 // Load a set of properties. Each line in prop_file is a filename
@@ -116,7 +114,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             int sis = strategy_interp.split_input_size();
             Mat domain_strat(dos, dis);
             Mat split_strat(sos, sis);
-            for (int i = 0; i < query.size(); i++) {
+            for (int i = 0; i < (int)query.size(); i++) {
                 if (i < dos * dis) {
                     domain_strat(i / dis, i % dis) = query(i);
                 } else {
@@ -141,11 +139,9 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             while(propertiesEvaluated < numProperties) {
                 int solved, source;
                 MPI_Status status;
-                MPI_Recv(&solved, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,
-                        MPI_COMM_WORLD, &status);
+                MPI_Recv(&solved, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                 double elapsed;
-                MPI_Recv(&elapsed, 1, MPI_DOUBLE, status.MPI_SOURCE, MPI_ANY_TAG,
-                        MPI_COMM_WORLD, &status);
+                MPI_Recv(&elapsed, 1, MPI_DOUBLE, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                 if (solved) {
                     // The property was either verified or falsified.
                     count++;
@@ -173,10 +169,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
         }
 
     private:
-        void sendProperty(const Networks::Nets netId, int property,
-                int worker, const boost::numeric::ublas::vector<double>& query) {
-            std::cout << "Sending network " << netId << " and property: " << property
-                << " to worker: " << worker << std::endl;
+        void sendProperty(const Networks::Nets netId, int property, int worker, const boost::numeric::ublas::vector<double>& query) {
+            std::cout << "Sending network " << netId << " and property: " << property << " to worker: " << worker << std::endl;
             MPI_Send(&netId, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
             int propertySize = properties[property].itv.lower.size();
             int querySize = query.size();
@@ -191,8 +185,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                     properties[property].itv.upper[j];
             }
             std::cout << "Sending: " << std::endl;
-            MPI_Send(&strategyAndProperty[0], msgSize, MPI_DOUBLE, worker, 0,
-                    MPI_COMM_WORLD);
+            MPI_Send(&strategyAndProperty[0], msgSize, MPI_DOUBLE, worker, 0, MPI_COMM_WORLD);
             std::cout << "Sent!" << std::endl;
         }
 };
@@ -233,22 +226,22 @@ int main(int argc, char** argv) {
     PyObject* pName = PyString_FromString("interface");
     PyObject* pModule = PyImport_Import(pName);
     Py_DECREF(pName);
-    PyObject* pAttackInit = PyObject_GetAttrString(
-            pModule, "initialize_pgd_class");
+
+    // initialize_pgd_class
+    PyObject* pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
     if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
-        if (PyErr_Occurred()) {
-            PyErr_Print();
-        }
+        if (PyErr_Occurred()) { PyErr_Print(); }
         Py_XDECREF(pAttackInit);
         Py_DECREF(pModule);
         throw std::runtime_error("Python error: Finding constructor");
     }
 
-    for ( const auto e : Networks::All ) {
+    for (const auto e : Networks::All ) {
         Network net = networks[e];
         PyObject* pgdAttack;
         try {
-            pgdAttack = create_attack_from_network(net, pAttackInit);
+            // PyObject* pgdAttack = PyObject_CallObject(pAttackInit, pArgs);
+            pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
             networkAttacks[e] = pgdAttack;
         } catch (const std::runtime_error& e) {
             Py_DECREF(pAttackInit);
@@ -259,11 +252,10 @@ int main(int argc, char** argv) {
 
     Py_DECREF(pAttackInit);
 
+    // prepare the pointer to function run_attack
     PyObject* pFunc = PyObject_GetAttrString(pModule, "run_attack");
     if (!pFunc || !PyCallable_Check(pFunc)) {
-        if (PyErr_Occurred()) {
-            PyErr_Print();
-        }
+        if (PyErr_Occurred()) { PyErr_Print(); }
         Py_XDECREF(pFunc);
         Py_DECREF(pModule);
         throw std::runtime_error("Python error: loading attack function");
@@ -283,8 +275,7 @@ int main(int argc, char** argv) {
         // The main process takes care of the Bayesian optimization stuff
         std::cout << "STARTING ROOT" << std::endl;
         //int dim = bi.input_size() * bi.output_size();
-        int dim = bi.domain_input_size() * bi.domain_output_size() +
-            bi.split_input_size() * bi.split_output_size();
+        int dim = bi.domain_input_size() * bi.domain_output_size() + bi.split_input_size() * bi.split_output_size();
         std::cout << "dim: " << dim << std::endl;
 
         boost::numeric::ublas::vector<double> best_point(dim);
@@ -304,7 +295,6 @@ int main(int argc, char** argv) {
         for (int i = 1; i < world_size; i++) {
             MPI_Send(&done, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         }
-
     } else {
         struct timespec start, end;
         while(true) {
@@ -329,8 +319,7 @@ int main(int argc, char** argv) {
             MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             MPI_Get_count(&status, MPI_DOUBLE, &numElements);
             std::vector<double> strategyAndProperty(numElements);
-            MPI_Recv(&strategyAndProperty[0], numElements, MPI_DOUBLE, 0,
-                    MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(&strategyAndProperty[0], numElements, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             // Interpret the given strategy and property.
             int dos = bi.domain_output_size();
@@ -349,12 +338,10 @@ int main(int argc, char** argv) {
             }
 
             //Deserialize property
-            int propertyStart = bi.domain_output_size() * bi.domain_input_size() +
-                bi.split_output_size() * bi.split_input_size();
+            int propertyStart = bi.domain_output_size() * bi.domain_input_size() + bi.split_output_size() * bi.split_input_size();
             Vec lower((numElements-propertyStart)/2);
             Vec upper((numElements-propertyStart)/2);
-            int lowerStart = propertyStart, upperStart = propertyStart +
-                (numElements - propertyStart)/2;
+            int lowerStart = propertyStart, upperStart = propertyStart + (numElements - propertyStart)/2;
             for (int i = 0; i < (numElements-propertyStart)/2; i++) {
                 lower(i) = strategyAndProperty[lowerStart+i];
                 upper(i) = strategyAndProperty[upperStart+i];
