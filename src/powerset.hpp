@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <vector>
 #include <memory>
-#include <Eigen/Dense>
+#include "eigen_wrapper.hpp"
 
 /**
  * A thin wrapper class around elina_abstract0_t* which is here to help with

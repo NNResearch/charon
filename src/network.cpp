@@ -11,15 +11,14 @@
 #include <vector>
 #include <memory>
 
-#include <Eigen/Dense>
 #include <elina_scalar.h>
 
 #include "network.hpp"
 #include "powerset.hpp"
 
 // Element-wise ReLU over a vector
-Eigen::VectorXd relu(const Eigen::VectorXd& x) {
-    Eigen::VectorXd y = x;
+Vec relu(const Vec& x) {
+    Vec y = x;
     for (unsigned int i = 0; i < y.size(); i++) {
         if (y(i) < 0.0) {
             y(i) = 0.0;
@@ -29,10 +28,10 @@ Eigen::VectorXd relu(const Eigen::VectorXd& x) {
 }
 
 // Element-wise ReLU over a 3D tensor
-std::vector<Eigen::MatrixXd> relu(const std::vector<Eigen::MatrixXd>& x) {
-    std::vector<Eigen::MatrixXd> y;
-    for (Eigen::MatrixXd m : x) {
-        Eigen::MatrixXd o(m.rows(), m.cols());
+Tensor relu(const Tensor& x) {
+    Tensor y;
+    for (Mat m : x) {
+        Mat o(m.rows(), m.cols());
         for (int i = 0; i < m.rows(); i++) {
             for (int j = 0; j < m.cols(); j++) {
                 o(i,j) = std::max(m(i,j), 0.0);
@@ -58,11 +57,11 @@ LayerType MaxPoolLayer::get_type() const {
     return MP;
 }
 
-std::vector<Eigen::MatrixXd> MaxPoolLayer::evaluate(
-        const std::vector<Eigen::MatrixXd>& x) const {
-    std::vector<Eigen::MatrixXd> ret;
+Tensor MaxPoolLayer::evaluate(
+        const Tensor& x) const {
+    Tensor ret;
     for (int k = 0; k < input_depth; k++) {
-        ret.push_back(Eigen::MatrixXd(input_height / window_height,
+        ret.push_back(Mat(input_height / window_height,
                     input_width / window_width));
         for (int i = 0; i < input_height / window_height; i++) {
             for (int j = 0; j < input_width / window_width; j++) {
@@ -81,12 +80,12 @@ std::vector<Eigen::MatrixXd> MaxPoolLayer::evaluate(
     return ret;
 }
 
-std::vector<Eigen::MatrixXd> MaxPoolLayer::backpropagate(
-        const std::vector<Eigen::MatrixXd>& eval,
-        const std::vector<Eigen::MatrixXd>& grad) const {
-    std::vector<Eigen::MatrixXd> ret;
+Tensor MaxPoolLayer::backpropagate(
+        const Tensor& eval,
+        const Tensor& grad) const {
+    Tensor ret;
     for (int i = 0; i < input_depth; i++) {
-        ret.push_back(Eigen::MatrixXd(input_height, input_width));
+        ret.push_back(Mat(input_height, input_width));
         for (int j = 0; j < output_height; j++) {
             for (int k = 0; k < output_width; k++) {
                 int max_j2 = 0;
@@ -192,14 +191,14 @@ Powerset MaxPoolLayer::propagate_powerset(const Powerset& pow) const {
 
 FCLayer::FCLayer() : Layer(0, 0, 0, 0, 0, 0) {}
 
-FCLayer::FCLayer(const Eigen::MatrixXd& w, const Eigen::VectorXd& b) :
+FCLayer::FCLayer(const Mat& w, const Vec& b) :
     Layer(1, w.cols(), 1, 1, b.size(), 1), weight{w}, bias{b} {
         if (w.rows() != b.size()) {
             throw std::runtime_error("Bad initialization of FCLayer");
         }
     }
 
-FCLayer::FCLayer(const Eigen::MatrixXd& w, const Eigen::VectorXd& b, int iw,
+FCLayer::FCLayer(const Mat& w, const Vec& b, int iw,
         int ih, int id, int ow, int oh, int od) :
     Layer(iw, ih, id, ow, oh, od), weight{w}, bias{b} {
         if (w.rows() != b.size()) {
@@ -211,10 +210,10 @@ LayerType FCLayer::get_type() const {
     return FC;
 }
 
-std::vector<Eigen::MatrixXd> FCLayer::evaluate(
-        const std::vector<Eigen::MatrixXd>& x) const {
+Tensor FCLayer::evaluate(
+        const Tensor& x) const {
     // Serialize the input tensor
-    Eigen::VectorXd x_v(input_width * input_depth * input_height);
+    Vec x_v(input_width * input_depth * input_height);
     for (int i = 0; i < input_depth; i++) {
         for (int j = 0; j < input_height; j++) {
             for (int k = 0; k < input_width; k++) {
@@ -224,12 +223,12 @@ std::vector<Eigen::MatrixXd> FCLayer::evaluate(
     }
 
     // Apply the affine transformation
-    Eigen::VectorXd out = weight * x_v + bias;
+    Vec out = weight * x_v + bias;
 
     // Deserialize the output
-    std::vector<Eigen::MatrixXd> ret;
+    Tensor ret;
     for (int i = 0; i < output_depth; i++) {
-        ret.push_back(Eigen::MatrixXd(output_height, output_width));
+        ret.push_back(Mat(output_height, output_width));
     }
     for (int i = 0; i < output_depth; i++) {
         for (int j = 0; j < output_height; j++) {
@@ -241,10 +240,10 @@ std::vector<Eigen::MatrixXd> FCLayer::evaluate(
     return ret;
 }
 
-std::vector<Eigen::MatrixXd> FCLayer::backpropagate(
-        const std::vector<Eigen::MatrixXd>& eval,
-        const std::vector<Eigen::MatrixXd>& grad) const {
-    Eigen::VectorXd grad_v(output_width * output_depth * output_height);
+Tensor FCLayer::backpropagate(
+        const Tensor& eval,
+        const Tensor& grad) const {
+    Vec grad_v(output_width * output_depth * output_height);
     for (int i = 0; i < output_depth; i++) {
         for (int j = 0; j < output_height; j++) {
             for (int k = 0; k < output_width; k++) {
@@ -252,10 +251,10 @@ std::vector<Eigen::MatrixXd> FCLayer::backpropagate(
             }
         }
     }
-    Eigen::VectorXd out_v = weight.transpose() * grad_v;
-    std::vector<Eigen::MatrixXd> out;
+    Vec out_v = weight.transpose() * grad_v;
+    Tensor out;
     for (int i = 0; i < input_depth; i++) {
-        out.push_back(Eigen::MatrixXd(input_height, input_width));
+        out.push_back(Mat(input_height, input_width));
         for (int j = 0; j < input_height; j++) {
             for (int k = 0; k < input_width; k++) {
                 out[i](j,k) = out_v(input_width * input_depth * j + input_depth * k + i);
@@ -269,7 +268,7 @@ Powerset FCLayer::propagate_powerset(const Powerset& p) const {
     return p.affine(weight, bias);
 }
 
-Filter::Filter(const std::vector<Eigen::MatrixXd>& fs) {
+Filter::Filter(const Tensor& fs) {
     for (unsigned int i = 0; i < fs.size(); i++) {
         for (unsigned int j = 0; j < fs.size(); j++) {
             if (fs[i].rows() != fs[j].rows() || fs[i].cols() != fs[j].cols()) {
@@ -332,8 +331,8 @@ ConvLayer::ConvLayer(const std::vector<Filter>& fs,
         int fc_cols = input_width * input_height * input_depth;
         int fc_rows = output_width * output_height * output_depth;
 
-        Eigen::MatrixXd fc_weight = Eigen::MatrixXd::Zero(fc_rows, fc_cols);
-        Eigen::VectorXd fc_bias(fc_rows);
+        Mat fc_weight = Mat::Zero(fc_rows, fc_cols);
+        Vec fc_bias(fc_rows);
         // These computations are taken from the appendix of the AI2 paper
         for (int i = 0; i < input_height - filter_height + 1; i++) {
             for (int j = 0; j < input_width - filter_width + 1; j++) {
@@ -362,16 +361,16 @@ LayerType ConvLayer::get_type() const {
     return CONV;
 }
 
-std::vector<Eigen::MatrixXd> ConvLayer::evaluate(
-        const std::vector<Eigen::MatrixXd>& x) const {
-    std::vector<Eigen::MatrixXd> ret;
+Tensor ConvLayer::evaluate(
+        const Tensor& x) const {
+    Tensor ret;
     for (int k = 0; k < num_filters; k++) {
-        ret.push_back(Eigen::MatrixXd(output_height, output_width));
+        ret.push_back(Mat(output_height, output_width));
         for (int i = 0; i < output_width; i++) {
             for (int j = 0; j < output_height; j++) {
-                std::vector<Eigen::MatrixXd> inp;
+                Tensor inp;
                 for (int k2 = 0; k2 < filter_depth; k2++) {
-                    inp.push_back(Eigen::MatrixXd(filter_height, filter_width));
+                    inp.push_back(Mat(filter_height, filter_width));
                     for (int i2 = 0; i2 < filter_width; i2++) {
                         for (int j2 = 0; j2 < filter_height; j2++) {
                             inp[k2](j2, i2) = x[k2](j + j2, i + i2);
@@ -385,9 +384,9 @@ std::vector<Eigen::MatrixXd> ConvLayer::evaluate(
     return ret;
 }
 
-std::vector<Eigen::MatrixXd> ConvLayer::backpropagate(
-        const std::vector<Eigen::MatrixXd>& eval,
-        const std::vector<Eigen::MatrixXd>& grad) const {
+Tensor ConvLayer::backpropagate(
+        const Tensor& eval,
+        const Tensor& grad) const {
     return fc.backpropagate(eval, grad);
 }
 
@@ -438,10 +437,10 @@ Network::Network(int nl, int id, int iw, int ih, int os, std::vector<int> lws,
     layer_widths(lws), layer_heights(lhs), layer_depths(lds),
     layers(ls) {}
 
-    Eigen::VectorXd Network::evaluate(const Eigen::VectorXd& input) const {
-        std::vector<Eigen::MatrixXd> in;
+    Vec Network::evaluate(const Vec& input) const {
+        Tensor in;
         for (int i = 0; i < input_depth; i++) {
-            in.push_back(Eigen::MatrixXd(input_height, input_width));
+            in.push_back(Mat(input_height, input_width));
         }
         for (int i = 0; i < input_depth; i++) {
             for (int j = 0; j < input_height; j++) {
@@ -459,10 +458,10 @@ Network::Network(int nl, int id, int iw, int ih, int os, std::vector<int> lws,
         return in[0].col(0);
     }
 
-Eigen::VectorXd Network::gradient(const Eigen::VectorXd& input) const {
-    std::vector<Eigen::MatrixXd> in;
+Vec Network::gradient(const Vec& input) const {
+    Tensor in;
     for (int i = 0; i < input_depth; i++) {
-        in.push_back(Eigen::MatrixXd(input_height, input_width));
+        in.push_back(Mat(input_height, input_width));
     }
     for (int i = 0; i < input_depth; i++) {
         for (int j = 0; j < input_height; j++) {
@@ -471,7 +470,7 @@ Eigen::VectorXd Network::gradient(const Eigen::VectorXd& input) const {
             }
         }
     }
-    std::vector<std::vector<Eigen::MatrixXd>> evaluations;
+    std::vector<Tensor> evaluations;
     for (unsigned int i = 0; i < layers.size(); i++) {
         in = layers[i]->evaluate(in);
         evaluations.push_back(in);
@@ -480,7 +479,7 @@ Eigen::VectorXd Network::gradient(const Eigen::VectorXd& input) const {
         }
     }
 
-    std::vector<std::vector<Eigen::MatrixXd>>::iterator it = evaluations.end() -1;
+    std::vector<Tensor>::iterator it = evaluations.end() -1;
     for (int i = num_layers - 1; i >= 0; i--) {
         if (i < num_layers - 1) {
             for (int j = 0; j < layer_depths[i+1]; j++) {
@@ -497,7 +496,7 @@ Eigen::VectorXd Network::gradient(const Eigen::VectorXd& input) const {
         in = layers[i]->backpropagate(*it, in);
     }
 
-    Eigen::VectorXd in_v(input_width * input_depth * input_height);
+    Vec in_v(input_width * input_depth * input_height);
     for (int i = 0; i < input_depth; i++) {
         for (int j = 0; j < input_height; j++) {
             for (int k = 0; k < input_width; k++) {
@@ -508,7 +507,7 @@ Eigen::VectorXd Network::gradient(const Eigen::VectorXd& input) const {
     return in_v;
 }
 
-Eigen::VectorXd parse_vector(std::string s) {
+Vec parse_vector(std::string s) {
     // Remove the [] around the vector
     s.erase(0, 1);
     s.erase(s.end() - 1, s.end());
@@ -524,7 +523,7 @@ Eigen::VectorXd parse_vector(std::string s) {
         elems.push_back(atof(tok.c_str()));
     }
 
-    Eigen::VectorXd b(elems.size());
+    Vec b(elems.size());
     for (unsigned int i = 0; i < elems.size(); i++) {
         b(i) = elems[i];
     }
@@ -532,24 +531,24 @@ Eigen::VectorXd parse_vector(std::string s) {
     return b;
 }
 
-Eigen::MatrixXd parse_matrix(std::string s) {
+Mat parse_matrix(std::string s) {
     // Remove [[ and ]] from the input string
     s.erase(0, 2);
     s.erase(s.end() - 2, s.end());
 
     std::stringstream ss(s);
     std::string tok;
-    std::vector<Eigen::VectorXd> rows;
+    std::vector<Vec> rows;
     while (getline(ss, tok, ']')) {
         // Erase ", [" from the beginning of tok
         if (tok[0] == ',') {
             tok.erase(0, 3);
         }
-        Eigen::VectorXd b = parse_vector("[" + tok + "]");
+        Vec b = parse_vector("[" + tok + "]");
         rows.push_back(b);
     }
 
-    Eigen::MatrixXd m(rows.size(), rows[0].size());
+    Mat m(rows.size(), rows[0].size());
     for (unsigned int i = 0; i < rows.size(); i++) {
         for (int j = 0; j < rows[i].size(); j++) {
             m(i,j) = rows[i](j);
@@ -595,9 +594,9 @@ std::vector<Filter> parse_filters(std::string s,
     }
     std::vector<Filter> ret;
     for (l = 0; l < num_filters; l++) {
-        std::vector<Eigen::MatrixXd> filter;
+        Tensor filter;
         for (k = 0; k < kernel_depth; k++) {
-            Eigen::MatrixXd weight(kernel_height, kernel_width);
+            Mat weight(kernel_height, kernel_width);
             for (i = 0; i < kernel_height; i++) {
                 for (j = 0; j < kernel_width; j++) {
                     weight(i,j) = data[i][j][k][l];
@@ -641,8 +640,8 @@ std::vector<Powerset> Network::propagate_powerset(const Powerset& p) const {
     return ret;
 }
 
-std::vector<Eigen::MatrixXd> Network::get_weights() const {
-    std::vector<Eigen::MatrixXd> ret;
+Tensor Network::get_weights() const {
+    Tensor ret;
     for (std::shared_ptr<Layer> l : layers) {
         //if (l->get_type() != FC) {
         //  throw std::runtime_error("Non-fully connected layer encountered in get_weights");
@@ -654,14 +653,14 @@ std::vector<Eigen::MatrixXd> Network::get_weights() const {
             std::shared_ptr<ConvLayer> cl = std::static_pointer_cast<ConvLayer>(l);
             ret.push_back(cl->fc.weight);
         } else {
-            ret.push_back(Eigen::MatrixXd(0, 0));
+            ret.push_back(Mat(0, 0));
         }
     }
     return ret;
 }
 
-std::vector<Eigen::VectorXd> Network::get_biases() const {
-    std::vector<Eigen::VectorXd> ret;
+std::vector<Vec> Network::get_biases() const {
+    std::vector<Vec> ret;
     for (std::shared_ptr<Layer> l : layers) {
         if (l->get_type() != FC) {
             throw std::runtime_error("Non-fully connected layer encountered in get_biases");
@@ -702,13 +701,13 @@ Network read_network(std::string filename) {
         if (line == "ReLU") {
             getline(file, line);
             // Now line holds the weight for this layer
-            Eigen::MatrixXd m = parse_matrix(line);
+            Mat m = parse_matrix(line);
             if (num_layers == 0) {
                 input_width = 1;
                 input_height = m.cols();
             }
             getline(file, line);
-            Eigen::VectorXd b = parse_vector(line);
+            Vec b = parse_vector(line);
             num_layers++;
             if (num_layers == 1) {
                 layer_widths.push_back(1);
@@ -760,11 +759,11 @@ Network read_network(std::string filename) {
                 if (name == "filters") {
                     num_filters = stoi(val);
                 } else if (name == "kernel_size") {
-                    Eigen::VectorXd v = parse_vector(val);
+                    Vec v = parse_vector(val);
                     kernel_height = v(0);
                     kernel_width = v(1);
                 } else if (name == "input_shape") {
-                    Eigen::VectorXd v = parse_vector(val);
+                    Vec v = parse_vector(val);
                     in_height = v(0);
                     in_width = v(1);
                     in_depth = v(2);
@@ -777,7 +776,7 @@ Network read_network(std::string filename) {
             std::vector<Filter> fs = parse_filters(line, num_filters,
                     kernel_width, kernel_height, in_depth);
             getline(file, line);
-            Eigen::VectorXd b = parse_vector(line);
+            Vec b = parse_vector(line);
             std::vector<double> bs;
             for (int i = 0; i < b.size(); i++) {
                 bs.push_back(b(i));
@@ -828,11 +827,11 @@ Network read_network(std::string filename) {
                 std::string name = tok.substr(0, ind);
                 std::string val = tok.substr(ind+1, std::string::npos);
                 if (name == "pool_size") {
-                    Eigen::VectorXd v = parse_vector(val);
+                    Vec v = parse_vector(val);
                     pool_height = v(0);
                     pool_width = v(1);
                 } else if (name == "input_shape") {
-                    Eigen::VectorXd v = parse_vector(val);
+                    Vec v = parse_vector(val);
                     in_height = v(0);
                     in_width = v(1);
                     in_depth = v(2);

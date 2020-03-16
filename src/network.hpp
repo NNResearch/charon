@@ -12,19 +12,17 @@
 #include <vector>
 #include <memory>
 
-#include <Eigen/Dense>
+#include "eigen_wrapper.hpp"
 
-/* A tensor is represented as a `std::vector<Eigen::MatrixXd>`.
-*/
 
 /**
  * Compute the element-wise ReLU (max(x,0)) of a vector.
  */
-Eigen::VectorXd relu(const Eigen::VectorXd& x);
+Vec relu(const Vec& x);
 /**
  * Compute the element-wise tanh of a vector.
  */
-Eigen::VectorXd tanh(const Eigen::VectorXd& x);
+Vec tanh(const Vec& x);
 
 /**
  * Label the type of a layer, either convolutional, fully connected, or max
@@ -130,8 +128,8 @@ class Layer {
          * \param x The input to the layer.
          * \return The output of this layer evaluated on `x`.
          */
-        virtual std::vector<Eigen::MatrixXd> evaluate(
-                const std::vector<Eigen::MatrixXd>& x) const = 0;
+        virtual Tensor evaluate(
+                const Tensor& x) const = 0;
 
         /**
          * Given the values seen during execution of this layer and gradients at
@@ -141,9 +139,9 @@ class Layer {
          * \param grad The gradients at the output of the layer.
          * \return The gradients at the input to the layer.
          */
-        virtual std::vector<Eigen::MatrixXd> backpropagate(
-                const std::vector<Eigen::MatrixXd>& eval,
-                const std::vector<Eigen::MatrixXd>& grad) const = 0;
+        virtual Tensor backpropagate(
+                const Tensor& eval,
+                const Tensor& grad) const = 0;
 
         /**
          * Propogate an abstract value through this layer.
@@ -177,11 +175,11 @@ class MaxPoolLayer: public Layer {
         MaxPoolLayer(int ww, int wh, int iw, int ih, int d);
 
         LayerType get_type() const override;
-        std::vector<Eigen::MatrixXd> evaluate(
-                const std::vector<Eigen::MatrixXd>&) const override;
-        std::vector<Eigen::MatrixXd> backpropagate(
-                const std::vector<Eigen::MatrixXd>&,
-                const std::vector<Eigen::MatrixXd>&) const override;
+        Tensor evaluate(
+                const Tensor&) const override;
+        Tensor backpropagate(
+                const Tensor&,
+                const Tensor&) const override;
         Powerset propagate_powerset(const Powerset&) const override;
 };
 
@@ -191,9 +189,9 @@ class MaxPoolLayer: public Layer {
 class FCLayer: public Layer {
     public:
         /** The weights between each input-output pair. */
-        Eigen::MatrixXd weight;
+        Mat weight;
         /** The biases for each output. */
-        Eigen::VectorXd bias;
+        Vec bias;
 
         /** Construct a layer with empty weight and biases. */
         FCLayer();
@@ -206,7 +204,7 @@ class FCLayer: public Layer {
          * \param w The weights to use in this layer.
          * \param b The biases to use in this layer.
          */
-        FCLayer(const Eigen::MatrixXd& w, const Eigen::VectorXd& b);
+        FCLayer(const Mat& w, const Vec& b);
 
         /**
          * Construct a layer with the given weight, biases, and dimensions. This
@@ -224,15 +222,15 @@ class FCLayer: public Layer {
          * \param oh The height of the output tensor.
          * \param od The depth of the output tensor.
          */
-        FCLayer(const Eigen::MatrixXd& w, const Eigen::VectorXd& b, int iw,
+        FCLayer(const Mat& w, const Vec& b, int iw,
                 int ih, int id, int ow, int oh, int od);
 
         LayerType get_type() const override;
-        std::vector<Eigen::MatrixXd> evaluate(
-                const std::vector<Eigen::MatrixXd>&) const override;
-        std::vector<Eigen::MatrixXd> backpropagate(
-                const std::vector<Eigen::MatrixXd>&,
-                const std::vector<Eigen::MatrixXd>&) const override;
+        Tensor evaluate(
+                const Tensor&) const override;
+        Tensor backpropagate(
+                const Tensor&,
+                const Tensor&) const override;
         Powerset propagate_powerset(const Powerset&) const override;
 };
 
@@ -242,14 +240,14 @@ class FCLayer: public Layer {
 class Filter {
     public:
         /** The coefficients of this filter */
-        std::vector<Eigen::MatrixXd> data;
+        Tensor data;
 
         /**
          * Construct a filter from the given data
          *
          * \param d The coefficients to use.
          */
-        Filter(const std::vector<Eigen::MatrixXd>& x);
+        Filter(const Tensor& x);
 
         /**
          * Get the depth of this filter.
@@ -318,11 +316,11 @@ class ConvLayer: public Layer {
                 const std::vector<double>& bs, int iw, int ih);
 
         LayerType get_type() const override;
-        std::vector<Eigen::MatrixXd> evaluate(
-                const std::vector<Eigen::MatrixXd>&) const override;
-        std::vector<Eigen::MatrixXd> backpropagate(
-                const std::vector<Eigen::MatrixXd>&,
-                const std::vector<Eigen::MatrixXd>&) const override;
+        Tensor evaluate(
+                const Tensor&) const override;
+        Tensor backpropagate(
+                const Tensor&,
+                const Tensor&) const override;
         Powerset propagate_powerset(const Powerset&) const override;
 };
 
@@ -476,7 +474,7 @@ class Network {
          * \param input The serialized input to the network.
          * \return The output when the network is evaluated at `input`.
          */
-        Eigen::VectorXd evaluate(const Eigen::VectorXd& input) const;
+        Vec evaluate(const Vec& input) const;
 
         /**
          * Evaluate the network and then backpropagate gradients to the input.
@@ -484,7 +482,7 @@ class Network {
          * \param input The serialized input to the network.
          * \return The gradient of the network at the given input.
          */
-        Eigen::VectorXd gradient(const Eigen::VectorXd& input) const;
+        Vec gradient(const Vec& input) const;
 
         /**
          * Given a powerset representing some input space, find a powerset
@@ -503,7 +501,7 @@ class Network {
          *
          * \return The weight of each layer of the network.
          */
-        std::vector<Eigen::MatrixXd> get_weights() const;
+        Tensor get_weights() const;
 
         /**
          * Get the biases of the network. This method is only defined for networks
@@ -511,7 +509,7 @@ class Network {
          *
          * \return The biases of each layer of the network.
          */
-        std::vector<Eigen::VectorXd> get_biases() const;
+        std::vector<Vec> get_biases() const;
 
         /**
          * Get the size of each layer. The size of a layer is that layer's width

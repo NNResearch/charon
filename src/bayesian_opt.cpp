@@ -12,7 +12,6 @@
 #include <map>
 #include <Python.h>
 #include <zonotope.h>
-#include <Eigen/Dense>
 #include <bayesopt/bayesopt.hpp>
 #ifdef TACC
 #include <mpi.h>

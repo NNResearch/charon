@@ -16,7 +16,6 @@
 #include <memory>
 
 #include <Python.h>
-#include <Eigen/Dense>
 
 #define NUM_THREADS 16
 

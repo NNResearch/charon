@@ -6,7 +6,7 @@
 #define PROJECT_UTILS_H
 
 #include <zonotope.h>
-#include <Eigen/Dense>
+#include "eigen_wrapper.hpp"
 #include <cstdlib>
 #include <vector>
 #include <iostream>

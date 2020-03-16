@@ -7,7 +7,7 @@
 
 #include <cstdlib>
 #include <vector>
-#include <Eigen/Dense>
+#include "eigen_wrapper.hpp"
 
 /**
  * A hyperinterval class used to define properties. A robustness property

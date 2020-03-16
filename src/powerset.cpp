@@ -9,7 +9,6 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <Eigen/Dense>
 #include <elina_box_internal.h>
 
 #include "powerset.hpp"
