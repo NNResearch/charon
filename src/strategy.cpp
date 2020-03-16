@@ -26,19 +26,14 @@ StrategyInterpretation::~StrategyInterpretation() {
     // Do nothing
 }
 
-double getSplitOffset(const Interval &input_space,
-        uint dimension, double strategy_param) {
+double getSplitOffset(const Interval &input_space, uint dimension, double strategy_param) {
     const Vec center = input_space.get_center();
-    double eps = std::min(1.0 - EPSILON,
-            std::max(-1.0 + EPSILON, strategy_param));
-    double len =
-        (input_space.upper(dimension) - input_space.lower(dimension)) / 2.0;
+    double eps = std::min(1.0 - EPSILON, std::max(-1.0 + EPSILON, strategy_param));
+    double len = (input_space.upper(dimension) - input_space.lower(dimension)) / 2.0;
     return center(dimension) + len * eps;
 }
 
-Vec BayesianStrategy::domain_featurize(
-        const Network& net, const Interval& input_space,
-        const Vec& counterexample) const {
+Vec BayesianStrategy::domain_featurize( const Network& net, const Interval& input_space, const Vec& counterexample) const {
     Vec center = input_space.get_center();
     Vec diff = counterexample - center;
     Vec farthest = center - input_space.lower;
@@ -117,8 +112,7 @@ void BayesianStrategy::split_extract(
     bool concretize;
     // Choose between the dimension of highest influence (dim1) and the longest
     // dimension (dim2)
-    uint dim1 = back_prop(net, ar.interval, concretize, ar.maxInd,
-            ar.layerOutputs);
+    uint dim1 = back_prop(net, ar.interval, concretize, ar.maxInd, ar.layerOutputs);
     uint dim2 = ar.interval.longest_dim();
     if (strategy_output(1) <= 0) {
         dimension = dim1;
@@ -214,8 +208,7 @@ void split(const AbstractResult &ar,
 }
 
 // Search for a counterexample
-Vec find_counterexample(Interval input, int max_ind,
-        const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
+Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
     // PGD from the center of this box
     Vec ce(net.get_input_size());
     Vec lower = input.lower;
@@ -349,10 +342,8 @@ bool check_abstract_value(Powerset output, int max_ind, int dims) {
 }
 
 // Propagate a given input interval through a network.
-std::vector<Powerset> propagate_through_network(Interval input, int disjuncts,
-        const Network& net, elina_manager_t* man) {
-    elina_interval_t** itv = (elina_interval_t**) malloc(input.lower.size() *
-            sizeof(elina_interval_t*));
+std::vector<Powerset> propagate_through_network(Interval input, int disjuncts, const Network& net, elina_manager_t* man) {
+    elina_interval_t** itv = (elina_interval_t**) malloc(input.lower.size() * sizeof(elina_interval_t*));
     for (int i = 0; i < input.lower.size(); i++) {
         itv[i] = elina_interval_alloc();
         elina_interval_set_double(itv[i], input.lower(i), input.upper(i));
