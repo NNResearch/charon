@@ -13,18 +13,15 @@
 
 #include "powerset.hpp"
 
-Abstract0::Abstract0(elina_manager_t* m, elina_abstract0_t* a):
-    man{m}, value{a}, center_computed{false} {}
+Abstract0::Abstract0(elina_manager_t* m, elina_abstract0_t* a): man{m}, value{a}, center_computed{false} {}
 
-    Abstract0::Abstract0(const Abstract0& other):
-        man{other.man}, value{elina_abstract0_copy(other.man, other.value)},
-        center{other.center}, center_computed{other.center_computed} {}
+Abstract0::Abstract0(const Abstract0& other): 
+    man{other.man}, value{elina_abstract0_copy(other.man, other.value)}, center{other.center}, center_computed{other.center_computed} {}
 
-        Abstract0::Abstract0(Abstract0&& other):
-            man{other.man}, value{other.value}, center{other.center},
-            center_computed{other.center_computed} {
-                other.value = nullptr;
-            }
+Abstract0::Abstract0(Abstract0&& other): 
+    man{other.man}, value{other.value}, center{other.center}, center_computed{other.center_computed} {
+    other.value = nullptr;
+}
 
 Abstract0::~Abstract0() {
     if (value != nullptr) {
@@ -49,11 +46,11 @@ Abstract0& Abstract0::operator=(Abstract0&& other) {
     return *this;
 }
 
-Eigen::VectorXd compute_center(elina_manager_t* man, elina_abstract0_t* abs) {
+Vec compute_center(elina_manager_t* man, elina_abstract0_t* abs) {
     elina_interval_t** itv;
     itv = elina_abstract0_to_box(man, abs);
     int dims = elina_abstract0_dimension(man, abs).realdim;
-    Eigen::VectorXd center(dims);
+    Vec center(dims);
     for (int i = 0; i < dims; i++) {
         double l, u;
         elina_double_set_scalar(&l, itv[i]->inf, MPFR_RNDN);
@@ -80,13 +77,12 @@ Powerset::Powerset(std::vector<std::shared_ptr<Abstract0>>& ds, int s) {
 }
 
 Powerset::Powerset(std::vector<std::shared_ptr<Abstract0>>& ds,
-        std::vector<Eigen::VectorXd>& cs, int s) {
+        std::vector<Vec>& cs, int s) {
     size = s;
     disjuncts = std::vector<std::shared_ptr<Abstract0>>(ds);
 }
 
-Powerset Powerset::assign_linexpr_array(elina_dim_t* dims,
-        elina_linexpr0_t** update, unsigned int size, unsigned int s) const {
+Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** update, unsigned int size, unsigned int s) const {
     std::vector<std::shared_ptr<Abstract0>> ds;
     for (std::shared_ptr<Abstract0> it : this->disjuncts) {
         elina_abstract0_t* it_dim;
@@ -136,8 +132,7 @@ Powerset Powerset::assign_linexpr_array(elina_dim_t* dims,
 Powerset Powerset::meet_lincons_array(elina_lincons0_array_t* cons) const {
     std::vector<std::shared_ptr<Abstract0>> ds;
     for (std::shared_ptr<Abstract0> it : this->disjuncts) {
-        elina_abstract0_t* abs = elina_abstract0_meet_lincons_array(
-                it->man, false, it->value, cons);
+        elina_abstract0_t* abs = elina_abstract0_meet_lincons_array( it->man, false, it->value, cons);
         bool bot = elina_abstract0_is_bottom(it->man, abs);
         // If this value is bottom it doesn't affect the powerset.
         if (!bot) {
@@ -197,7 +192,7 @@ Powerset Powerset::remove_dimensions(elina_dimchange_t* dc) const {
         for (unsigned int i = 0; i < disjuncts.size(); i++) {
             if (disjuncts[i]->center_computed) {
                 p.disjuncts[i]->center_computed = true;
-                Eigen::VectorXd c(out_dims);
+                Vec c(out_dims);
                 int dc_ind = 0;
                 int c_ind = 0;
                 for (unsigned int j = 0; j < dims; j++) {
@@ -214,14 +209,13 @@ Powerset Powerset::remove_dimensions(elina_dimchange_t* dc) const {
     return p;
 }
 
-Powerset Powerset::affine(const Eigen::MatrixXd& m, const Eigen::VectorXd& b) const {
+Powerset Powerset::affine(const Mat& m, const Vec& b) const {
     int in_size = m.cols();
     int out_size = m.rows();
 
     // Create an elina linexpr array representing this update
     elina_dim_t* dims = (elina_dim_t*) malloc(out_size * sizeof(elina_dim_t));
-    elina_linexpr0_t** update = (elina_linexpr0_t**) malloc(out_size *
-            sizeof(elina_linexpr0_t*));
+    elina_linexpr0_t** update = (elina_linexpr0_t**) malloc(out_size * sizeof(elina_linexpr0_t*));
     for (int j = 0; j < out_size; j++) {
         dims[j] = j;
         update[j] = elina_linexpr0_alloc(ELINA_LINEXPR_DENSE, in_size);
@@ -349,8 +343,7 @@ bool Powerset::is_bottom() const {
 
 ssize_t Powerset::dims() const {
     if (this->disjuncts.size() > 0)
-        return elina_abstract0_dimension(
-                this->disjuncts[0]->man, this->disjuncts[0]->value).realdim;
+        return elina_abstract0_dimension( this->disjuncts[0]->man, this->disjuncts[0]->value).realdim;
     return 0;
 }
 

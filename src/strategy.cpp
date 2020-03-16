@@ -28,7 +28,7 @@ StrategyInterpretation::~StrategyInterpretation() {
 
 double getSplitOffset(const Interval &input_space,
         uint dimension, double strategy_param) {
-    const Eigen::VectorXd center = input_space.get_center();
+    const Vec center = input_space.get_center();
     double eps = std::min(1.0 - EPSILON,
             std::max(-1.0 + EPSILON, strategy_param));
     double len =
@@ -36,12 +36,12 @@ double getSplitOffset(const Interval &input_space,
     return center(dimension) + len * eps;
 }
 
-Eigen::VectorXd BayesianStrategy::domain_featurize(
+Vec BayesianStrategy::domain_featurize(
         const Network& net, const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const {
-    Eigen::VectorXd center = input_space.get_center();
-    Eigen::VectorXd diff = counterexample - center;
-    Eigen::VectorXd farthest = center - input_space.lower;
+        const Vec& counterexample) const {
+    Vec center = input_space.get_center();
+    Vec diff = counterexample - center;
+    Vec farthest = center - input_space.lower;
     // Get the distance from the center to the counterexample in a few different
     // norms and normalize these distances according to the distance from the
     // center to the corner.
@@ -49,7 +49,7 @@ Eigen::VectorXd BayesianStrategy::domain_featurize(
     double linf = diff.lpNorm<Eigen::Infinity>() / farthest.lpNorm<Eigen::Infinity>();
     // Get the difference between the two best scores at the point returned
     // by the counterexample search.
-    Eigen::VectorXd output = net.evaluate(counterexample);
+    Vec output = net.evaluate(counterexample);
     int best_ind = 0;
     double best_score = output(0);
     for (int i = 1; i < output.size(); i++) {
@@ -70,7 +70,7 @@ Eigen::VectorXd BayesianStrategy::domain_featurize(
     }
     double score_diff = (best_score - second_best_score) / std::abs(best_score);
     // Get some information about the gradient at the counterexample point
-    Eigen::VectorXd gradient = net.gradient(counterexample);
+    Vec gradient = net.gradient(counterexample);
     double tmp = std::abs(gradient(0));
     double gradSum = tmp;
     for (int i = 1; i < gradient.size(); i++) {
@@ -81,22 +81,22 @@ Eigen::VectorXd BayesianStrategy::domain_featurize(
     }
     double ce_dim_largest_grad = tmp / gradSum;
     // Construct a strategy input from the gathered information
-    Eigen::VectorXd strategy_input(this->domain_input_size());
+    Vec strategy_input(this->domain_input_size());
     strategy_input << l1, linf, score_diff, ce_dim_largest_grad, 1.0;
     return strategy_input;
 }
 
-Eigen::VectorXd BayesianStrategy::split_featurize(
+Vec BayesianStrategy::split_featurize(
         const Network& net, const Interval& input_space,
-        const Eigen::VectorXd& counterexample) const {
+        const Vec& counterexample) const {
     // Use the same featurization function for partitioning as we do for
     // choosing a domain.
     return domain_featurize(net, input_space, counterexample);
 }
 
 void BayesianStrategy::domain_extract(
-        const Eigen::VectorXd& strategy_output,
-        const Network& net, const Eigen::VectorXd& counterexample,
+        const Vec& strategy_output,
+        const Network& net, const Vec& counterexample,
         Domain& domain, int& num_disjuncts) const {
     // Choose a domain
     if (strategy_output(0) >= 0) {
@@ -111,7 +111,7 @@ void BayesianStrategy::domain_extract(
 }
 
 void BayesianStrategy::split_extract(
-        const Eigen::VectorXd& strategy_output,
+        const Vec& strategy_output,
         const Network& net, const AbstractResult& ar,
         double& split_offset, uint& dimension) const {
     bool concretize;
@@ -139,7 +139,7 @@ void free_interval(elina_interval_t** property, int dims) {
     free(property);
 }
 
-PyObject* eigen_vector_to_python_list(const Eigen::VectorXd& b) {
+PyObject* eigen_vector_to_python_list(const Vec& b) {
     PyObject* ret = PyList_New(b.size());
     for (int i = 0; i < b.size(); i++) {
         PyObject* pi = PyFloat_FromDouble(b(i));
@@ -148,7 +148,7 @@ PyObject* eigen_vector_to_python_list(const Eigen::VectorXd& b) {
     return ret;
 }
 
-PyObject* eigen_matrix_to_python_list(const Eigen::MatrixXd& w) {
+PyObject* eigen_matrix_to_python_list(const Mat& w) {
     PyObject* ret = PyList_New(w.rows());
     for (int i = 0; i < w.rows(); i++) {
         PyObject* row = eigen_vector_to_python_list(w.row(i));
@@ -157,9 +157,9 @@ PyObject* eigen_matrix_to_python_list(const Eigen::MatrixXd& w) {
     return ret;
 }
 
-Eigen::VectorXd python_list_to_eigen_vector(PyObject* pValue) {
+Vec python_list_to_eigen_vector(PyObject* pValue) {
     int size = PyList_Size(pValue);
-    Eigen::VectorXd ret(size);
+    Vec ret(size);
     for (int i = 0; i < size; i++) {
         PyObject* elem = PyList_GetItem(pValue, i);
         ret(i) = PyFloat_AsDouble(elem);
@@ -169,25 +169,25 @@ Eigen::VectorXd python_list_to_eigen_vector(PyObject* pValue) {
 
 // Split a given input region into two pieces to analyze
 void split(const AbstractResult &ar,
-        const Eigen::MatrixXd& split_strategy, const Network& net,
+        const Mat& split_strategy, const Network& net,
         AbstractInput& left, AbstractInput& right,
         const StrategyInterpretation& interp) {
 
     const Interval &itv = ar.interval;
-    const Eigen::VectorXd &counterexample = ar.counterexample;
+    const Vec &counterexample = ar.counterexample;
     //const std::vector<Powerset> &layerOutputs = ar.layerOutputs;
-    Eigen::VectorXd strategy_input = interp.split_featurize(net, itv, counterexample);
-    Eigen::VectorXd strategy_output = split_strategy * strategy_input;
+    Vec strategy_input = interp.split_featurize(net, itv, counterexample);
+    Vec strategy_output = split_strategy * strategy_input;
 
     double split_offset;
     uint dimension;
     interp.split_extract(strategy_output, net, ar, split_offset, dimension);
 
     // These four vectors describe the bounds of the two new regions.
-    Eigen::VectorXd left_lower(net.get_input_size());
-    Eigen::VectorXd left_upper(net.get_input_size());
-    Eigen::VectorXd right_lower(net.get_input_size());
-    Eigen::VectorXd right_upper(net.get_input_size());
+    Vec left_lower(net.get_input_size());
+    Vec left_upper(net.get_input_size());
+    Vec right_lower(net.get_input_size());
+    Vec right_upper(net.get_input_size());
     for (int i = 0; i < net.get_input_size(); i++) {
         if (i == dimension) {
             // If i is the split dimension, then we change left_upper and right_lower
@@ -214,12 +214,12 @@ void split(const AbstractResult &ar,
 }
 
 // Search for a counterexample
-Eigen::VectorXd find_counterexample(Interval input, int max_ind,
+Vec find_counterexample(Interval input, int max_ind,
         const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
     // PGD from the center of this box
-    Eigen::VectorXd ce(net.get_input_size());
-    Eigen::VectorXd lower = input.lower;
-    Eigen::VectorXd upper = input.upper;
+    Vec ce(net.get_input_size());
+    Vec lower = input.lower;
+    Vec upper = input.upper;
     for (unsigned int i = 0; i < ce.size(); i++) {
         ce(i) = (lower(i) + upper(i)) / 2.0;
     }
@@ -367,12 +367,12 @@ std::vector<Powerset> propagate_through_network(Interval input, int disjuncts,
 // Run one iteration of the Charon loop.
 AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         const Network& net, PyObject* pgdAttack, PyObject* pFunc,
-        const StrategyInterpretation* interp, const Eigen::MatrixXd strategy) {
+        const StrategyInterpretation* interp, const Mat strategy) {
 
-    Eigen::VectorXd ce = find_counterexample(ai.property, max_ind, net, pgdAttack, pFunc);
+    Vec ce = find_counterexample(ai.property, max_ind, net, pgdAttack, pFunc);
 
     // We need to determine if ce is actually a counterexample
-    Eigen::VectorXd outp = net.evaluate(ce);
+    Vec outp = net.evaluate(ce);
     int mi = max_ind;
     double max = outp(max_ind);
     double softmax_total = 0.0;
@@ -387,14 +387,14 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         }
         softmax_total += std::exp(outp(i));
     }
-    Eigen::VectorXd softmax(outp.size());
+    Vec softmax(outp.size());
     for (int i = 0; i < net.get_output_size(); i++) {
         softmax(i) = std::exp(outp(i)) / softmax_total;
     }
 
-    Eigen::VectorXd center(net.get_input_size());
-    Eigen::VectorXd lower_corner = ai.property.lower;
-    Eigen::VectorXd upper_corner = ai.property.upper;
+    Vec center(net.get_input_size());
+    Vec lower_corner = ai.property.lower;
+    Vec upper_corner = ai.property.upper;
     for (int i = 0; i < net.get_input_size(); i++) {
         center(i) = (lower_corner(i) + upper_corner(i)) / 2.0;
     }
@@ -409,8 +409,8 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
     }
 
     // We did not find a counterexample, so now we need to choose a domain
-    Eigen::VectorXd domain_inp = interp->domain_featurize(net, ai.property, ce);
-    Eigen::VectorXd domain_outp = strategy * domain_inp;
+    Vec domain_inp = interp->domain_featurize(net, ai.property, ce);
+    Vec domain_outp = strategy * domain_inp;
     interp->domain_extract(domain_outp, net, ce, ai.domain, ai.disjuncts);
 
     elina_manager_t *man;
@@ -446,10 +446,10 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
 
 // Given an interval, determine whether the network is robust on that interval.
 // If not, give a counterexample.
-bool verify_with_strategy(const Eigen::VectorXd& original,
+bool verify_with_strategy(const Vec& original,
         const Interval& property, int max_ind, const Network& net,
-        Eigen::VectorXd& counterexample, int& num_calls,
-        const Eigen::MatrixXd& domain_strategy, const Eigen::MatrixXd& split_strategy,
+        Vec& counterexample, int& num_calls,
+        const Mat& domain_strategy, const Mat& split_strategy,
         const StrategyInterpretation& interp,
         double timeout, PyObject* pgdAttack, PyObject* pFunc) {
 
@@ -525,7 +525,7 @@ bool verify_with_strategy(const Eigen::VectorXd& original,
 }
 
 // Populate Eigen vector bounds from an ELINA interval
-void intervalBounds(Eigen::VectorXd &lower, Eigen::VectorXd &upper,
+void intervalBounds(Vec &lower, Vec &upper,
         elina_interval_t** &box) {
     int size = upper.rows();
     for (int i = 0; i < size; i++) {
@@ -540,7 +540,7 @@ void intervalBounds(Eigen::VectorXd &lower, Eigen::VectorXd &upper,
 uint back_prop(const Network &net, const Interval &input, bool &concretize,
         const int trueClass, const std::vector<Powerset> &layerOutputs) {
     concretize = false;
-    const std::vector<Eigen::MatrixXd> weights = net.get_weights();
+    const Tensor weights = net.get_weights();
     std::vector<uint> positiveWidthIntervals;
 
     for (uint i = 0; i < input.lower.size(); i++) {
@@ -548,13 +548,13 @@ uint back_prop(const Network &net, const Interval &input, bool &concretize,
             positiveWidthIntervals.push_back(i);
     }
     int numLayers = net.get_num_layers();
-    Eigen::MatrixXd dLower, dUpper;
+    Mat dLower, dUpper;
     for(int i = numLayers-2; i > -1; i--) {
-        Eigen::VectorXd tempLower1 = Eigen::VectorXd::Zero(net.get_layer_sizes()[i]);
-        Eigen::VectorXd tempUpper1 = Eigen::VectorXd::Zero(net.get_layer_sizes()[i]);
-        Eigen::MatrixXd dLower1, dUpper1;
+        Vec tempLower1 = Vec::Zero(net.get_layer_sizes()[i]);
+        Vec tempUpper1 = Vec::Zero(net.get_layer_sizes()[i]);
+        Mat dLower1, dUpper1;
         elina_interval_t **bbox = layerOutputs[i+1].bounding_box();
-        Eigen::VectorXd lower(layerOutputs[i+1].dims()), upper(layerOutputs[i+1].dims());
+        Vec lower(layerOutputs[i+1].dims()), upper(layerOutputs[i+1].dims());
         intervalBounds(lower, upper, bbox);
         if (i == numLayers-2) {
             dUpper1 = weights[weights.size()-1].row(trueClass);
@@ -563,12 +563,12 @@ uint back_prop(const Network &net, const Interval &input, bool &concretize,
             dUpper1 = dUpper;
             dLower1 = dLower;
         }
-        Eigen::MatrixXd w = weights[i];
+        Mat w = weights[i];
         dLower = tempLower1;
         dUpper = tempUpper1;
         if (weights[i].cols() == 0) {
             elina_interval_t** bbox2 = layerOutputs[i].bounding_box();
-            Eigen::VectorXd lower2(layerOutputs[i].dims()), upper2(layerOutputs[i].dims());
+            Vec lower2(layerOutputs[i].dims()), upper2(layerOutputs[i].dims());
             intervalBounds(lower2, upper2, bbox2);
             // This is a max pooling layer
             for (int j = 0; j < net.get_layer_sizes()[i+1]; j++) {

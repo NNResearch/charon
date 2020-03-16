@@ -114,8 +114,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             int dis = strategy_interp.domain_input_size();
             int sos = strategy_interp.split_output_size();
             int sis = strategy_interp.split_input_size();
-            Eigen::MatrixXd domain_strat(dos, dis);
-            Eigen::MatrixXd split_strat(sos, sis);
+            Mat domain_strat(dos, dis);
+            Mat split_strat(sos, sis);
             for (int i = 0; i < query.size(); i++) {
                 if (i < dos * dis) {
                     domain_strat(i / dis, i % dis) = query(i);
@@ -337,8 +337,8 @@ int main(int argc, char** argv) {
             int dis = bi.domain_input_size();
             int sos = bi.split_output_size();
             int sis = bi.split_input_size();
-            Eigen::MatrixXd domain_strat(dos, dis);
-            Eigen::MatrixXd split_strat(sos, sis);
+            Mat domain_strat(dos, dis);
+            Mat split_strat(sos, sis);
             for (int i = 0; i < dos * dis + sos * sis; i++) {
                 if (i < dos * dis) {
                     domain_strat(i / dis, i % dis) = strategyAndProperty[i];
@@ -351,8 +351,8 @@ int main(int argc, char** argv) {
             //Deserialize property
             int propertyStart = bi.domain_output_size() * bi.domain_input_size() +
                 bi.split_output_size() * bi.split_input_size();
-            Eigen::VectorXd lower((numElements-propertyStart)/2);
-            Eigen::VectorXd upper((numElements-propertyStart)/2);
+            Vec lower((numElements-propertyStart)/2);
+            Vec upper((numElements-propertyStart)/2);
             int lowerStart = propertyStart, upperStart = propertyStart +
                 (numElements - propertyStart)/2;
             for (int i = 0; i < (numElements-propertyStart)/2; i++) {
@@ -365,7 +365,7 @@ int main(int argc, char** argv) {
             // We start by determining a target class. In order for the interval to
             // be robust, all points must have the same label, so we can evaluate any
             // point in the interval to get a target class.
-            Eigen::VectorXd out = net.evaluate(lower);
+            Vec out = net.evaluate(lower);
             int max_ind = 0;
             double max = out(0);
             for (int i = 1; i < out.size(); i++) {
@@ -376,7 +376,7 @@ int main(int argc, char** argv) {
             }
 
             try {
-                Eigen::VectorXd counterexample(lower.size());
+                Vec counterexample(lower.size());
                 int num_calls = 0;
                 clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                 verify_with_strategy(lower, itv, max_ind, net,

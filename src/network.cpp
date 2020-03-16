@@ -386,8 +386,7 @@ Powerset ConvLayer::propagate_powerset(const Powerset& p) const {
                 for (int i2 = 0; i2 < filter_height; i2++) {
                     for (int j2 = 0; j2 < filter_width; j2++) {
                         for (int k2 = 0; k2 < filter_depth; k2++) {
-                            int col = input_width * input_depth * (i + i2) +
-                                input_depth * (j + j2) + k2;
+                            int col = input_width * input_depth * (i + i2) + input_depth * (j + j2) + k2;
                             elina_linexpr0_set_coeff_scalar_double(update[row], col,
                                     filters[k].data[k2](i2, j2));
                         }

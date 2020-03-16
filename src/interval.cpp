@@ -8,7 +8,7 @@
 
 #include <fstream>
 
-Interval::Interval(Eigen::VectorXd l, Eigen::VectorXd u): lower{l}, upper{u} {
+Interval::Interval(Vec l, Vec u): lower{l}, upper{u} {
     if (l.size() != u.size()) {
         throw std::runtime_error("Length mismatch in Interval constructor");
     }
@@ -18,7 +18,7 @@ Interval::Interval(Eigen::VectorXd l, Eigen::VectorXd u): lower{l}, upper{u} {
     }
 }
 
-Interval::Interval(): lower{Eigen::VectorXd(0)}, upper{Eigen::VectorXd(0)} {}
+Interval::Interval(): lower{Vec(0)}, upper{Vec(0)} {}
 
 Interval::Interval(std::string filename) {
     std::vector<double> low;
@@ -37,8 +37,8 @@ Interval::Interval(std::string filename) {
         upp.push_back(u);
     }
 
-    this->lower = Eigen::VectorXd::Map(low.data(), low.size());
-    this->upper = Eigen::VectorXd::Map(upp.data(), upp.size());
+    this->lower = Vec::Map(low.data(), low.size());
+    this->upper = Vec::Map(upp.data(), upp.size());
 
     for (int i = 0; i < low.size(); i++) {
         if (upp[i] - low[i] > 0) {
@@ -57,7 +57,7 @@ elina_interval_t** Interval::get_elina_interval() const {
     return ret;
 }
 
-void Interval::set_bounds(Eigen::VectorXd l, Eigen::VectorXd u) {
+void Interval::set_bounds(Vec l, Vec u) {
     if (l.size() != u.size()) {
         throw std::runtime_error("Size mismatch in Interval::set_bounds");
     }
@@ -71,8 +71,8 @@ void Interval::set_bounds(Eigen::VectorXd l, Eigen::VectorXd u) {
     }
 }
 
-Eigen::VectorXd Interval::get_center() const {
-    Eigen::VectorXd ce(lower.size());
+Vec Interval::get_center() const {
+    Vec ce(lower.size());
     for (int i = 0; i < lower.size(); i++) {
         double l = this->lower(i);
         double u = this->upper(i);
@@ -93,10 +93,10 @@ int Interval::longest_dim() const {
     return longest_dim;
 }
 
-int Interval::longest_dim(const Eigen::VectorXd &counterexample) const {
+int Interval::longest_dim(const Vec &counterexample) const {
     int longest_dim = 0;
     double length = 0;
-    Eigen::VectorXd center = this->get_center();
+    Vec center = this->get_center();
     for (int i = 0; i < this->lower.size(); i++) {
         double diff = std::abs(counterexample(i) - center(i));
         if (diff > length) {

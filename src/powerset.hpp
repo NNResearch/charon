@@ -25,7 +25,7 @@ class Abstract0 {
         /** The wrapped value. */
         elina_abstract0_t* value;
         /** The center of the bounding box of this value. */
-        Eigen::VectorXd center;
+        Vec center;
         /** This bool is true if center is valid. */
         bool center_computed;
 
@@ -67,7 +67,7 @@ class Powerset {
         Powerset(std::vector<std::shared_ptr<Abstract0>>&, int);
         /** Constructor when centers are known. */
         Powerset(std::vector<std::shared_ptr<Abstract0>>&,
-                std::vector<Eigen::VectorXd>&, int);
+                std::vector<Vec>&, int);
 
         /**
          * Apply some linear transformation to this powerset.
@@ -116,7 +116,7 @@ class Powerset {
          * \param b The bias vector of the affine transformation.
          * \return The transformed abstract value.
          */
-        Powerset affine(const Eigen::MatrixXd& w, const Eigen::VectorXd& b) const;
+        Powerset affine(const Mat& w, const Vec& b) const;
 
         /**
          * Perform a ReLU on this abstract value. For each dimension i, we split

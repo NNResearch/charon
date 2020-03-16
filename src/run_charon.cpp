@@ -40,10 +40,10 @@ int main(int argc, char** argv) {
     int dis = si->domain_input_size();
     int sos = si->split_output_size();
     int sis = si->split_input_size();
-    Eigen::VectorXd strategyMat(dis * dos + sis * sos);
+    Vec strategyMat(dis * dos + sis * sos);
     std::ifstream in(strategy_filename);
-    Eigen::MatrixXd domain_strat(dos, dis);
-    Eigen::MatrixXd split_strat(sos, sis);
+    Mat domain_strat(dos, dis);
+    Mat split_strat(sos, sis);
     for (int i = 0; i < dos * dis; i++) {
         domain_strat(i / dis, i % dis) = strategyMat(i);
     }
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
     PyGILState_Release(gstate);
     PyThreadState* tstate = PyEval_SaveThread();
 
-    Eigen::VectorXd out = net.evaluate(property.lower);
+    Vec out = net.evaluate(property.lower);
     int max_ind = 0;
     double max = out(0); for (int i = 1; i < out.size(); i++) {
         if (out(i) > max) {
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
     bool verified = false;
     bool timeout = false;
-    Eigen::VectorXd counterexample(net.get_input_size());
+    Vec counterexample(net.get_input_size());
     try {
         int num_calls = 0;
         verified = verify_with_strategy(

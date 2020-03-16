@@ -49,7 +49,7 @@ typedef struct abstractResult {
     /** Whether or not the property was falsified. */
     bool falsified;
     /** The counterexample if falsified is true. */
-    Eigen::VectorXd counterexample;
+    Vec counterexample;
     /** The interval which was analyzed. */
     Interval interval;
     /** The output of each layer of the network. */
@@ -105,10 +105,10 @@ class StrategyInterpretation {
          * \param counterexample The value returned from the counterexample search.
          * \return A set of features to use when choosing a domain.
          */
-        virtual Eigen::VectorXd domain_featurize(
+        virtual Vec domain_featurize(
                 const Network& net,
                 const Interval& input_space,
-                const Eigen::VectorXd& counterexample) const = 0;
+                const Vec& counterexample) const = 0;
 
         /**
          * Choose a domain from the output of the strategy.
@@ -120,9 +120,9 @@ class StrategyInterpretation {
          * \param num_disjuncts A reference to be filled with the size of powerset.
          */
         virtual void domain_extract(
-                const Eigen::VectorXd& strategy_output,
+                const Vec& strategy_output,
                 const Network& net,
-                const Eigen::VectorXd& counterexample,
+                const Vec& counterexample,
                 Domain& domain,
                 int& num_disjuncts) const = 0;
 
@@ -134,10 +134,10 @@ class StrategyInterpretation {
          * \param counterexample The value returned from the counterexample search.
          * \return A set of features to use when choosing a domain.
          */
-        virtual Eigen::VectorXd split_featurize(
+        virtual Vec split_featurize(
                 const Network& net,
                 const Interval& input_space,
-                const Eigen::VectorXd& counterexample) const = 0;
+                const Vec& counterexample) const = 0;
 
         /**
          * Choose a partition from the output of the strategy.
@@ -149,7 +149,7 @@ class StrategyInterpretation {
          * \param num_disjuncts A reference to be filled with the size of powerset.
          */
         virtual void split_extract(
-                const Eigen::VectorXd& strategy_output,
+                const Vec& strategy_output,
                 const Network& net,
                 const AbstractResult& ar,
                 double& split_offset,
@@ -178,22 +178,22 @@ class BayesianStrategy : public StrategyInterpretation {
             return 2;
         }
 
-        Eigen::VectorXd domain_featurize(
+        Vec domain_featurize(
                 const Network& net,
                 const Interval& input_space,
-                const Eigen::VectorXd& counterexample) const override;
+                const Vec& counterexample) const override;
         void domain_extract(
-                const Eigen::VectorXd& strategy_output,
+                const Vec& strategy_output,
                 const Network& net,
-                const Eigen::VectorXd& counterexample,
+                const Vec& counterexample,
                 Domain& domain,
                 int& num_disjuncts) const override;
-        Eigen::VectorXd split_featurize(
+        Vec split_featurize(
                 const Network& net,
                 const Interval& input_space,
-                const Eigen::VectorXd& counterexample) const override;
+                const Vec& counterexample) const override;
         void split_extract(
-                const Eigen::VectorXd& strategy_output,
+                const Vec& strategy_output,
                 const Network& net,
                 const AbstractResult& ar,
                 double& split_offset,
@@ -207,7 +207,7 @@ class BayesianStrategy : public StrategyInterpretation {
  * \param v The vector to convert.
  * \return A python list representation of `v`.
  */
-PyObject* eigen_vector_to_python_list(const Eigen::VectorXd& v);
+PyObject* eigen_vector_to_python_list(const Vec& v);
 
 /**
  * Convert an Eigen matrix to a python list.
@@ -215,7 +215,7 @@ PyObject* eigen_vector_to_python_list(const Eigen::VectorXd& v);
  * \param m The matrix to convert.
  * \return A python list representation of `m`.
  */
-PyObject* eigen_matrix_to_python_list(const Eigen::MatrixXd& m);
+PyObject* eigen_matrix_to_python_list(const Mat& m);
 
 /**
  * Convert a python list to an Eigen vector.
@@ -223,7 +223,7 @@ PyObject* eigen_matrix_to_python_list(const Eigen::MatrixXd& m);
  * \param o A python list.
  * \return An Eigen vector representation of `o`.
  */
-Eigen::VectorXd python_list_to_eigen_vector(PyObject* o);
+Vec python_list_to_eigen_vector(PyObject* o);
 
 /**
  * Create an `IntervalPGDAttack` object from a given network. See interface.py
@@ -253,14 +253,14 @@ PyObject* create_attack_from_network(const Network& n, PyObject* o);
  * \exception timeout_exception The analysis timed out.
  * \return `true` if the robustness property holds.
  */
-bool verify_with_strategy(const Eigen::VectorXd& original,
+bool verify_with_strategy(const Vec& original,
         const Interval& property,
         int max_ind,
         const Network& net,
-        Eigen::VectorXd& counterexample,
+        Vec& counterexample,
         int& num_calls,
-        const Eigen::MatrixXd& domain_strategy,
-        const Eigen::MatrixXd& split_strategy,
+        const Mat& domain_strategy,
+        const Mat& split_strategy,
         const StrategyInterpretation& interp,
         double timeout,
         PyObject* pgdAttack,

@@ -17,9 +17,9 @@
 class Interval {
     public:
         /** Lower bounds for each dimension. */
-        Eigen::VectorXd lower;
+        Vec lower;
         /** Upper bounds for each dimension. */
-        Eigen::VectorXd upper;
+        Vec upper;
         /** Holds the indices of each dimension which has positive width. */
         std::vector<int> posDims;
 
@@ -32,7 +32,7 @@ class Interval {
          * \param l The lower bounds for each dimension.
          * \param u The upper bounds for each dimension.
          */
-        Interval(Eigen::VectorXd l, Eigen::VectorXd u);
+        Interval(Vec l, Vec u);
 
         /**
          * Read an interval from a file. The file format consists of a number of
@@ -57,14 +57,14 @@ class Interval {
          * \param l The new lower bounds of the interval.
          * \param u The new upper bounds of the interval.
          */
-        void set_bounds(Eigen::VectorXd l, Eigen::VectorXd u);
+        void set_bounds(Vec l, Vec u);
 
         /**
          * Find the center of this interval.
          *
          * \return The center of this interval as an Eigen vector.
          */
-        Eigen::VectorXd get_center() const;
+        Vec get_center() const;
 
         /**
          * Find the dimension which is the longest. That is, find the value of i
@@ -80,7 +80,7 @@ class Interval {
          *
          * \return The index of the largest dimension.
          */
-        int longest_dim(const Eigen::VectorXd &counterexample) const;
+        int longest_dim(const Vec &counterexample) const;
 
         /**
          * Find the average dimension length of this interval.

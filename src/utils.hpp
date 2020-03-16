@@ -14,34 +14,34 @@
 
 class interval {
     public:
-        Eigen::VectorXd lower;
-        Eigen::VectorXd upper;
+        Vec lower;
+        Vec upper;
         std::vector<int> posDims;
 
         interval();
-        interval(Eigen::VectorXd, Eigen::VectorXd);
+        interval(Vec, Vec);
 
         elina_interval_t** get_elina_interval() const;
-        void set_bounds(Eigen::VectorXd, Eigen::VectorXd);
-        Eigen::VectorXd get_center() const;
+        void set_bounds(Vec, Vec);
+        Vec get_center() const;
 };
 
-interval::interval(Eigen::VectorXd l, Eigen::VectorXd u): lower(l), upper(u) {
+interval::interval(Vec l, Vec u): lower(l), upper(u) {
     for(int i = 0; i < l.size(); i++) {
         if (upper(i) - lower(i) > 0)
             this->posDims.push_back(i);
     }
 }
 
-interval::interval(): lower(Eigen::VectorXd(0)), upper(Eigen::VectorXd(0)) {}
+interval::interval(): lower(Vec(0)), upper(Vec(0)) {}
 
-void interval::set_bounds(Eigen::VectorXd l, Eigen::VectorXd u) {
+void interval::set_bounds(Vec l, Vec u) {
     lower = l;
     upper = u;
 }
 
-Eigen::VectorXd interval::get_center() const {
-    Eigen::VectorXd ce(lower.size());
+Vec interval::get_center() const {
+    Vec ce(lower.size());
     for (int i = 0; i < lower.size(); i++) {
         double l = lower(i);
         double u = upper(i);
@@ -68,8 +68,8 @@ interval read_property1(std::string filename, int& dims) {
     }
 
     dims = lower.size();
-    Eigen::VectorXd l(dims);
-    Eigen::VectorXd u(dims);
+    Vec l(dims);
+    Vec u(dims);
     for (int i = 0; i < dims; i++) {
         l(i) = lower[i];
         u(i) = upper[i];
