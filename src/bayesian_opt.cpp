@@ -328,14 +328,11 @@ int main(int argc, char** argv) {
             int sis = bi.split_input_size();
             Mat domain_strat(dos, dis);
             Mat split_strat(sos, sis);
-            for (int i = 0; i < dos * dis + sos * sis; i++) {
-                if (i < dos * dis) {
-                    domain_strat(i / dis, i % dis) = strategyAndProperty[i];
-                } else {
-                    split_strat((i - dos*dis) / sis, (i - dos*dis) % sis) =
-                        strategyAndProperty[i];
-                }
-            }
+            int ds_size = dos*dis, ss_size = sos*sis;
+            for (int i = 0; i < ds_size; i++)
+                domain_strat(i/dis, i%dis) = strategyAndProperty[i];
+            for (int i = 0; i < ss_size; i++)
+                split_strat(i/sis, i%sis) = strategyAndProperty[ds_size+i];
 
             //Deserialize property
             int propertyStart = bi.domain_output_size() * bi.domain_input_size() + bi.split_output_size() * bi.split_input_size();

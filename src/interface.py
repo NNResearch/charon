@@ -42,9 +42,9 @@ class IntervalPGDAttack:
             loss = model.xent
 
         self.grad = tf.gradients(loss, model.x_input)[0]
-
         with tf.Session() as sess:
             self.graph = sess.graph
+
 
     def perturb(self, x_nat, y, lower, upper, sess):
         if self.rand:
@@ -55,9 +55,7 @@ class IntervalPGDAttack:
             x = np.copy(x_nat)
 
         for i in range(self.k):
-            grad = sess.run(self.grad, feed_dict={self.model.x_input: x,
-                                                  self.model.y_input: y})
-
+            grad = sess.run(self.grad, feed_dict={self.model.x_input: x, self.model.y_input: y})
             x += self.a * np.sign(grad)
 
             x = np.clip(x, lower, upper)
@@ -65,8 +63,9 @@ class IntervalPGDAttack:
                 x = np.clip(x, -1, 1)
             else:
                 x = np.clip(x, 0, 1) # ensure valid pixel range
-
         return x
+
+
 
 class Model:
     def __init__(self, layers):
