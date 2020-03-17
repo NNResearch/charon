@@ -111,7 +111,8 @@ int main(int argc, char** argv) {
 
     Vec out = net.evaluate(property.lower);
     int max_ind = 0;
-    double max = out(0); for (int i = 1; i < out.size(); i++) {
+    double max = out(0); 
+    for (int i = 1; i < out.size(); i++) {
         if (out(i) > max) {
             max_ind = i;
             max = out(i);

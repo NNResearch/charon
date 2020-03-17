@@ -473,12 +473,11 @@ bool verify_with_strategy(const Vec& original,
         double timeout, PyObject* pgdAttack, PyObject* pFunc) {
 
     struct timespec start, current;
-    // to_verify will hold a bunch of intervals on which the property has not
-    // yet been verified
     AbstractInput init;
     init.property = property;
     init.domain = default_domain;
     init.disjuncts = POWERSET_SIZE;
+    // to_verify will hold a bunch of intervals on which the property has not yet been verified
     std::deque<AbstractInput> to_verify;
     // Initially, to_verify is a single interval with the the entire input space
     to_verify.push_back(init);
