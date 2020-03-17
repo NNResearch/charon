@@ -220,23 +220,18 @@ std::string Vec2Str(Vec& v) {
     return ss.str();
 }
 
+
+static int samples = 0;
 // Search for a counterexample
 Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
     // PGD from the center of this box
     Vec ce(net.get_input_size());
     Vec lower = input.lower;
     Vec upper = input.upper;
-    // cout << "find counterexample around (";
     
     for (unsigned int i = 0; i < ce.size(); i++) {
         ce(i) = (lower(i) + upper(i)) / 2.0;
     }
-    /*
-    cout << "***********************************************************************\n" << flush;
-    cout << ">>try to find counterexample around " <<  Vec2Str(ce) << ")\n" << flush;
-    cout << "  |--lower bound is " << Vec2Str(lower)<< "\n" << flush;
-    cout << "  |--upper bound is " << Vec2Str(upper)<< "\n" << flush;
-    */
 
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
@@ -263,12 +258,12 @@ Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObjec
     }
 
     ce = python_list_to_eigen_vector(pValue);
-    cout << "***********************************************************************\n" << flush;
-    // cout << "try to find counterexample in interval " << Vec2Str(lower) << " --> " << Vec2Str(upper) << ")\n" << flush;
-    cout << ">>try to find counterexample around " << Vec2Str(ce) << ")\n" << flush;
-    cout << "  -- lower bound is " << Vec2Str(lower)<< "\n" << flush;
-    cout << "  -- upper bound is " << Vec2Str(upper)<< "\n" << flush;
-    cout << "  == counterexample found: " << Vec2Str(ce) << "\n" << flush;
+    // cout << "***********************************************************************\n" << flush;
+    // cout << ">>try to find counterexample around " << Vec2Str(ce) << ")\n" << flush;
+    // cout << "  -- lower bound is " << Vec2Str(lower)<< "\n" << flush;
+    // cout << "  -- upper bound is " << Vec2Str(upper)<< "\n" << flush;
+    // cout << "  == counterexample found: " << Vec2Str(ce) << "\n" << flush;
+    cout << " #" << ++samples << ")  Interval[" << Vec2Str(lower)<< ", " << Vec2Str(upper)<< "  -->-->--> " << Vec2Str(ce) << "\n" << flush;
     Py_DECREF(pValue);
     PyGILState_Release(gstate);
     return ce;

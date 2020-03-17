@@ -19,7 +19,8 @@
 #include <mpi/mpi.h>
 #endif
 
-#define TIMEOUT 1000
+// #define TIMEOUT 1000
+#define TIMEOUT 100
 #define PENALTY 2
 
 /** An enum describing all the networks used for training. */
@@ -295,6 +296,12 @@ int main(int argc, char** argv) {
         for (int i = 1; i < world_size; i++) {
             MPI_Send(&done, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         }
+
+        std::cout << "*********** Best Point is: (";
+        for (int i = 0; i < dim; i++) {
+            std::cout << best_point(i) << ",";
+        }
+        std::cout << ")\n";
     } else {
         struct timespec start, end;
         while(true) {
