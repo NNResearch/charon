@@ -23,6 +23,11 @@ class Interval {
         /** Holds the indices of each dimension which has positive width. */
         std::vector<int> posDims;
 
+        friend std::ostream& operator<<(std::ostream& o, Interval& i) {
+            o << "Interval[" << vec_to_str(i.lower) << ", " << vec_to_str(i.upper) << "]";
+            return o;
+        }
+
         /** Default constructor. Leaves lower and upper empty. */
         Interval();
 

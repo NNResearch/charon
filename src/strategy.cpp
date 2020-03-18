@@ -209,7 +209,8 @@ void split(const AbstractResult &ar,
     right.property.set_bounds(right_lower, right_upper);
 }
 
-std::string Vec2Str(Vec& v) {
+/*
+std::string vec_to_str(Vec& v) {
     if (v.size()<=0) return "";
     stringstream ss;
     ss << "(" << v(0);
@@ -219,20 +220,16 @@ std::string Vec2Str(Vec& v) {
     ss << ")";
     return ss.str();
 }
-
+*/
 
 static int samples = 0;
 // Search for a counterexample
 Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
     // PGD from the center of this box
-    Vec ce(net.get_input_size());
     Vec lower = input.lower;
     Vec upper = input.upper;
+    Vec ce = input.get_center();
     
-    for (unsigned int i = 0; i < ce.size(); i++) {
-        ce(i) = (lower(i) + upper(i)) / 2.0;
-    }
-
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
     PyObject* pArgs = PyTuple_New(5);
@@ -259,11 +256,11 @@ Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObjec
 
     ce = python_list_to_eigen_vector(pValue);
     // cout << "***********************************************************************\n" << flush;
-    // cout << ">>try to find counterexample around " << Vec2Str(ce) << ")\n" << flush;
-    // cout << "  -- lower bound is " << Vec2Str(lower)<< "\n" << flush;
-    // cout << "  -- upper bound is " << Vec2Str(upper)<< "\n" << flush;
-    // cout << "  == counterexample found: " << Vec2Str(ce) << "\n" << flush;
-    cout << " #" << ++samples << ")  Interval[" << Vec2Str(lower)<< ", " << Vec2Str(upper)<< "  -->-->--> " << Vec2Str(ce) << "\n" << flush;
+    // cout << ">>try to find counterexample around " << vec_to_str(ce) << ")\n" << flush;
+    // cout << "  -- lower bound is " << vec_to_str(lower)<< "\n" << flush;
+    // cout << "  -- upper bound is " << vec_to_str(upper)<< "\n" << flush;
+    // cout << "  == counterexample found: " << vec_to_str(ce) << "\n" << flush;
+    // cout << " #" << ++samples << ") " << input << " -->" << vec_to_str(ce) << "\n" << flush;
     Py_DECREF(pValue);
     PyGILState_Release(gstate);
     return ce;
@@ -378,11 +375,13 @@ std::vector<Powerset> propagate_through_network(Interval input, int disjuncts, c
     return net.propagate_powerset(z);
 }
 
+static int input_no=0;
 // Run one iteration of the Charon loop.
 AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         const Network& net, PyObject* pgdAttack, PyObject* pFunc,
         const StrategyInterpretation* interp, const Mat strategy) {
-
+    int no=input_no++;
+    // std::cout << "#" << no << ")verify_abstract input: " << ai.property << " ->" << max_ind << "\n" << std::flush;
     Vec ce = find_counterexample(ai.property, max_ind, net, pgdAttack, pFunc);
 
     // We need to determine if ce is actually a counterexample
@@ -419,6 +418,8 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
     if (mi != max_ind) {
         ar.falsified = true;
         ar.verified = false;
+        // std::cout << " " << no << "|-> falsified!\n";
+        std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> falsified!\n" << std::flush;
         return ar;
     }
 
@@ -446,6 +447,7 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         ar.layerOutputs = output;
         ar.maxInd = max_ind;
         elina_manager_free(man);
+        std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> verified!\n" << std::flush;
         return ar;
     }
 
@@ -455,6 +457,8 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
     ar.maxInd = max_ind;
     ar.layerOutputs = output;
     elina_manager_free(man);
+    // std::cout << " " << no << "|-> unknown!\n";
+    std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> unknown!\n" << std::flush;
     return ar;
 }
 
