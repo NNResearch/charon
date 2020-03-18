@@ -209,19 +209,6 @@ void split(const AbstractResult &ar,
     right.property.set_bounds(right_lower, right_upper);
 }
 
-/*
-std::string vec_to_str(Vec& v) {
-    if (v.size()<=0) return "";
-    stringstream ss;
-    ss << "(" << v(0);
-    for (unsigned int i = 1; i < v.size(); i++) {
-        ss << "," << v(i);
-    }
-    ss << ")";
-    return ss.str();
-}
-*/
-
 static int samples = 0;
 // Search for a counterexample
 Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObject* pgdAttack, PyObject* pFunc) {
@@ -255,8 +242,8 @@ Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObjec
     }
 
     ce = python_list_to_eigen_vector(pValue);
-    // cout << "***********************************************************************\n" << flush;
-    // cout << ">>try to find counterexample around " << vec_to_str(ce) << ")\n" << flush;
+    // cout << "*********************************************************\n" << flush;
+    // cout << ">>search counterexample around " << vec_to_str(ce) << ")\n" << flush;
     // cout << "  -- lower bound is " << vec_to_str(lower)<< "\n" << flush;
     // cout << "  -- upper bound is " << vec_to_str(upper)<< "\n" << flush;
     // cout << "  == counterexample found: " << vec_to_str(ce) << "\n" << flush;
@@ -419,7 +406,7 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         ar.falsified = true;
         ar.verified = false;
         // std::cout << " " << no << "|-> falsified!\n";
-        std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> falsified!\n" << std::flush;
+        // std::cout << std::flush << "#" << no << ") verify " << ai.property << ":" << max_ind << " |-> falsified!\n" << std::flush;
         return ar;
     }
 
@@ -447,7 +434,7 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         ar.layerOutputs = output;
         ar.maxInd = max_ind;
         elina_manager_free(man);
-        std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> verified!\n" << std::flush;
+        // std::cout << std::flush << "#" << no << ") verify " << ai.property << ":" << max_ind << " |-> verified!\n" << std::flush;
         return ar;
     }
 
@@ -458,7 +445,7 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
     ar.layerOutputs = output;
     elina_manager_free(man);
     // std::cout << " " << no << "|-> unknown!\n";
-    std::cout << "#" << no << ")verify " << ai.property << ":" << max_ind << " |-> unknown!\n" << std::flush;
+    // std::cout << std::flush << "#" << no << ") verify " << ai.property << ":" << max_ind << " |-> unknown!\n" << std::flush;
     return ar;
 }
 

@@ -13,8 +13,10 @@ import numpy as np
 # import tensorflow as tf
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import tensorflow.compat.v1 as tf 
-tf.disable_v2_behavior()
+# import tensorflow.compat.v1 as tf 
+# tf.disable_v2_behavior()
+import tensorflow as tf 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 class IntervalPGDAttack:
     def __init__(self, model, k, a, random_start, loss_func):

@@ -23,11 +23,26 @@ static std::string vec_to_str(Vec& v) {
     std::stringstream ss;
     ss << "(" << v(0);
     for (unsigned int i = 1; i < v.size(); i++) {
-        ss << "," << v(i);
+        ss << " " << v(i);
+        // ss << "," << v(i);
     }
     ss << ")";
     return ss.str();
 }
 
+static std::string mat_to_str(Mat& m) {
+    if (m.cols()*m.rows()<=0)return "[]";
+    std::stringstream ss;
+    ss << "[";
+    for (int i = 0; i < m.rows(); i++) {
+        ss << "Row" << i << ":(" << m(i,0);
+        for (int j = 1; j < m.cols(); j++) {
+            ss << " " << m(i,j);
+        }
+        ss << ")   ";
+    }
+    ss << "]";
+    return ss.str();
+}
 
 #endif

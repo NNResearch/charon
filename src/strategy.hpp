@@ -96,6 +96,18 @@ class StrategyInterpretation {
         /** The number of outputs from the partition strategy. */
         virtual int split_output_size() const = 0;
 
+        // virtual void fill_strategy_size(int&, int&, int&, int&) const = 0;
+        void fill_strategy_size(int& dis, int& dos, int& sis, int& sos) const {
+            dis = domain_input_size();
+            dos = domain_output_size();
+            sis = split_input_size();
+            sos = split_output_size();
+        }
+        void fill_strategy_size(int& dis, int& dos, int& sis, int& sos, int&dim) const {
+            fill_strategy_size(dis, dos, sis, sos);
+            dim = dis*dos+sis*sos;
+        }
+
         /**
          * Extract features from the input to a verification policy.
          *
@@ -197,7 +209,6 @@ class BayesianStrategy : public StrategyInterpretation {
                 const AbstractResult& ar,
                 double& split_offset,
                 uint& dimension) const override;
-
 };
 
 /**

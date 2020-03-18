@@ -412,26 +412,44 @@ Network::Network() : num_layers{0}, input_width{0}, input_height{0}, input_depth
 Network::Network(int nl, int id, int iw, int ih, int os, std::vector<int> lws, std::vector<int> lhs, std::vector<int> lds, std::vector<std::shared_ptr<Layer>> ls)
     : num_layers{nl}, input_width{iw}, input_height{ih}, input_depth{id}, output_size{os}, layer_widths(lws), layer_heights(lhs), layer_depths(lds), layers(ls) {}
 
-    Vec Network::evaluate(const Vec& input) const {
-        Tensor in;
-        for (int i = 0; i < input_depth; i++) {
-            in.push_back(Mat(input_height, input_width));
-        }
-        for (int i = 0; i < input_depth; i++) {
-            for (int j = 0; j < input_height; j++) {
-                for (int k = 0; k < input_width; k++) {
-                    in[i](j,k) = input(input_width * input_depth * j + input_depth * k + i);
-                }
-            }
-        }
-        for (unsigned int i = 0; i < layers.size(); i++) {
-            in = layers[i]->evaluate(in);
-            if (i < layers.size() - 1) {
-                in = relu(in);
-            }
-        }
-        return in[0].col(0);
+Vec Network::evaluate(const Vec& input) const {
+    Tensor in;
+    for (int i = 0; i < input_depth; i++) {
+        in.push_back(Mat(input_height, input_width));
     }
+    for (int i = 0; i < input_depth; i++) {
+        for (int j = 0; j < input_height; j++) {
+            for (int k = 0; k < input_width; k++) {
+                in[i](j,k) = input(input_width * input_depth * j + input_depth * k + i);
+            }
+        }
+    }
+    for (unsigned int i = 0; i < layers.size(); i++) {
+        in = layers[i]->evaluate(in);
+        if (i < layers.size() - 1) {
+            in = relu(in);
+        }
+    }
+    return in[0].col(0);
+}
+
+int Network::output_vec_to_label(const Vec& output) const {
+    int max_ind = 0;
+    double max = output(0);
+    for (int i=1; i<output.size(); i++) {
+        if (output(i)>max) {
+            max_ind=i;
+            max=output(i);
+        }
+    }
+    return max_ind;
+}
+
+int Network::predict(const Vec& input) const {
+    Vec output = evaluate(input);
+    return output_vec_to_label(output);
+}
+    
 
 Vec Network::gradient(const Vec& input) const {
     Tensor in;

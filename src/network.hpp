@@ -476,6 +476,9 @@ class Network {
          */
         Vec evaluate(const Vec& input) const;
 
+        int output_vec_to_label(const Vec& output) const;
+        int predict(const Vec& input) const;
+
         /**
          * Evaluate the network and then backpropagate gradients to the input.
          *

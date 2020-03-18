@@ -20,33 +20,45 @@
 #endif
 
 // #define TIMEOUT 1000
-#define TIMEOUT 100
+#define TIMEOUT 1000
 #define PENALTY 2
 
 /** An enum describing all the networks used for training. */
-namespace Networks {
-    enum Nets {
-        ACAS_XU,
-    };
-    static const Nets All[] = {ACAS_XU};
-}
-
-#ifdef CHARON_HOME
-/** A map from network descriptors to network objects. */
-static std::map<Networks::Nets, Network> networks = {
-    {Networks::Nets::ACAS_XU,
-        read_network(CHARON_HOME + std::string("example/acas_xu_1_1.txt"))}
+enum NetType {
+    ACAS_XU,
 };
-#endif
+static const NetType AllNetTypes[] = {ACAS_XU};
+
+
+/** A map from network descriptors to network objects. */
+static std::map<NetType, Network> networks = {
+    {NetType::ACAS_XU, read_network(CHARON_HOME + std::string("example/acas_xu_1_1.txt"))}
+};
 
 /** A map from network descriptors to the associated PGD methods. */
-static std::map<Networks::Nets, PyObject*> networkAttacks;
+static std::map<NetType, PyObject*> networkAttacks;
 
 typedef struct property {
     Interval itv;
-    Networks::Nets net;
+    NetType net;
 } Property;
 
+
+/*
+void devectorize_to_mats(StrategyInterpretation& si, const boost::numeric::ublas::vector<double>& query, Mat& domain_strat, Mat& split_strat) {
+    int dis, dos, sis, sos, dim;
+    si.fill_strategy_size(dis, dos, sis, sos, dim);
+    domain_strat.resize(dos, dis);
+    split_strat.resize(sos, sis);
+    int ds_size = dos*dis, ss_size = sos*sis;
+    for (int i = 0; i < ds_size; i++)
+        domain_strat(i/dis, i%dis) = query[i];
+    for (int i = 0; i < ss_size; i++)
+        split_strat(i/sis, i%sis) = query[ds_size+i];
+}
+*/
+
+static int numSample = 0;
 /** Holds information needed by the Bayesian optimization procedure. */
 class CegarOptimizer: public bayesopt::ContinuousModel {
     private:
@@ -86,7 +98,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                     }
                     Property p;
                     p.itv = Interval(CHARON_HOME + std::string(results[0]));
-                    p.net = Networks::Nets::ACAS_XU;
+                    p.net = NetType::ACAS_XU;
                     properties.push_back(p);
                 }
 
@@ -104,28 +116,28 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
          * \return A score for the strategy.
          */
         double evaluateSample(const boost::numeric::ublas::vector<double>& query) {
+            int no = ++numSample;
             // We should only get into this call when world_rank = 0
             // There might be a more efficient way to convert to an Eigen vector
             int numProperties, propertiesToAssign, propertiesEvaluated = 0;
             // Split the strategy vector into two matrices, one for choosing a domain
             // and one for choosing a partition.
-            int dos = strategy_interp.domain_output_size();
-            int dis = strategy_interp.domain_input_size();
-            int sos = strategy_interp.split_output_size();
-            int sis = strategy_interp.split_input_size();
+            int dis, dos, sis, sos;
+            strategy_interp.fill_strategy_size(dis, dos, sis, sos);
             Mat domain_strat(dos, dis);
             Mat split_strat(sos, sis);
             for (int i = 0; i < (int)query.size(); i++) {
-                if (i < dos * dis) {
-                    domain_strat(i / dis, i % dis) = query(i);
-                } else {
-                    split_strat((i - dos*dis) / sis, (i - dos*dis) % sis) = query(i);
-                }
+                if (i < dos * dis) { domain_strat(i / dis, i % dis) = query(i); } 
+                else { split_strat((i - dos*dis) / sis, (i - dos*dis) % sis) = query(i); }
             }
-            std::cout << "Evaluating: " << domain_strat << std::endl;
-            std::cout << "and: " << split_strat << std::endl;
-            // For some given time budget (per property), see how many properties
-            // we can verify
+            // std::cout << "job no #" << no << " to evaluate\n";
+            std::cout << "******************** job no #" << no << " evaluting strategies ********************* \n";
+            std::cout << " Strategy: \n";
+            std::cout << "   |- domain: "<< mat_to_str(domain_strat) << "\n";
+            std::cout << "   |- split : "<< mat_to_str(split_strat) << "\n";
+            // std::cout << "Evaluating: (domain)" << mat_to_str(domain_strat) << std::endl;
+            // std::cout << "and: (split)" << mat_to_str(split_strat) << std::endl;
+            // For some given time budget (per property), see how many properties we can verify
             int count = 0;
             double total_time = 0.0;
             int i = 0;
@@ -161,6 +173,14 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                 }
             }
 
+            // std::cout << "**** job no #" << no << " evaluted strategies: \n";
+            // std::cout << " |- domain_strategy: "<< mat_to_str(domain_strat) << "\n";
+            // std::cout << " |- split_strategy: "<< mat_to_str(split_strat) << "\n";
+            // std::cout << " |- domain_strategy: "<< domain_strat << "\n";
+            // std::cout << " |- split_strategy: "<< split_strat << "\n";
+            std::cout << " Result: \n";
+            std::cout << "   |- property solved: " << count << " (/" << numProperties << ")\n";
+            std::cout << "   |- time spent: " << total_time << "\n\n\n";
             return total_time;
         }
 
@@ -170,10 +190,11 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
         }
 
     private:
-        void sendProperty(const Networks::Nets netId, int property, int worker, const boost::numeric::ublas::vector<double>& query) {
-            std::cout << "Sending network " << netId << " and property: " << property << " to worker: " << worker << std::endl;
-            MPI_Send(&netId, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
-            int propertySize = properties[property].itv.lower.size();
+        void sendProperty(const NetType netType, int propId, int worker, const boost::numeric::ublas::vector<double>& query) {
+            std::cout << " Sending network " << netType << " and property #" << propId << " to worker: " << worker << std::endl;
+            std::cout << "   |- interval: " << properties[propId].itv << "\n";
+            MPI_Send(&netType, 1, MPI_INT, worker, 0, MPI_COMM_WORLD);
+            int propertySize = properties[propId].itv.lower.size();
             int querySize = query.size();
             int msgSize = querySize + 2 * propertySize;
             std::vector<double> strategyAndProperty(querySize + 2 * propertySize);
@@ -181,44 +202,32 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                 strategyAndProperty[j] = query[j];
             }
             for (int j = 0; j < propertySize; j++) {
-                strategyAndProperty[querySize + j] = properties[property].itv.lower[j];
-                strategyAndProperty[querySize + propertySize + j] =
-                    properties[property].itv.upper[j];
+                strategyAndProperty[querySize + j] = properties[propId].itv.lower[j];
+                strategyAndProperty[querySize + propertySize + j] = properties[propId].itv.upper[j];
             }
-            std::cout << "Sending: " << std::endl;
+            // std::cout << "Sending: " << std::endl;
             MPI_Send(&strategyAndProperty[0], msgSize, MPI_DOUBLE, worker, 0, MPI_COMM_WORLD);
-            std::cout << "Sent!" << std::endl;
+            // std::cout << "Sent!" << std::endl;
         }
 };
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cout << "Usage: ./learn <property-file>" << std::endl;
-        std::abort();
-    }
+static PyObject* pModule;
+static PyObject* pAttackInit;
+static PyObject* pFunc;
+PyGILState_STATE gstate;
+std::vector<PyObject*> liveObjects;
+// static PyGILState_STATE gstate = PyGILState_Ensure();
+void cleanupPyObjects() {
+    for (PyObject* o: liveObjects)
+        Py_DECREF(o);
+    liveObjects.clear();
+}
 
-    std::string benchmarks = argv[1];
-    MPI_Init(NULL, NULL);
-#ifdef CHARON_HOME
+void Attack_Initialize() {
     std::string cwd = CHARON_HOME;
-#else
-    std::cout << "CHARON_HOME is undefined. If you compiled with the " <<
-        "provided CMake file this shouldn't happen, otherwise set " <<
-        "CHARON_HOME" << std::endl;
-    std::abort();
-#endif
-
-    int world_rank, world_size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-    std::cout << "world size: " << world_size << std::endl;
-
     Py_Initialize();
     PyEval_InitThreads();
-
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
+    gstate = PyGILState_Ensure();
     char s[5] = "path";
     PyObject* sysPath = PySys_GetObject(s);
     PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
@@ -226,68 +235,94 @@ int main(int argc, char** argv) {
     PySys_SetObject(s, sysPath);
     PyObject* pName = PyString_FromString("interface");
     PyObject* pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
+    liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
+    // Py_DECREF(pName);
     // initialize_pgd_class
-    PyObject* pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
+    pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
     if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
         if (PyErr_Occurred()) { PyErr_Print(); }
         Py_XDECREF(pAttackInit);
-        Py_DECREF(pModule);
+        // Py_DECREF(pModule);
+        cleanupPyObjects();
         throw std::runtime_error("Python error: Finding constructor");
     }
-
-    for (const auto e : Networks::All ) {
-        Network net = networks[e];
-        PyObject* pgdAttack;
-        try {
-            // PyObject* pgdAttack = PyObject_CallObject(pAttackInit, pArgs);
-            pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
-            networkAttacks[e] = pgdAttack;
-        } catch (const std::runtime_error& e) {
-            Py_DECREF(pAttackInit);
-            Py_DECREF(pModule);
-            throw e;
-        }
-    }
-
-    Py_DECREF(pAttackInit);
-
+    liveObjects.push_back(pAttackInit);
     // prepare the pointer to function run_attack
-    PyObject* pFunc = PyObject_GetAttrString(pModule, "run_attack");
+    pFunc = PyObject_GetAttrString(pModule, "run_attack");
     if (!pFunc || !PyCallable_Check(pFunc)) {
         if (PyErr_Occurred()) { PyErr_Print(); }
         Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
+        // Py_DECREF(pModule);
+        cleanupPyObjects();
         throw std::runtime_error("Python error: loading attack function");
+    }
+    liveObjects.push_back(pFunc);
+}
+
+PyObject* Attack_Net(Network& net) {
+    try {
+        PyObject* pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
+        liveObjects.push_back(pgdAttack);
+        return pgdAttack;
+    } catch (const std::runtime_error& e) {
+        Py_DECREF(pAttackInit);
+        Py_DECREF(pModule);
+        throw e;
+    }
+}
+
+void Attack_Finalize() {
+    gstate = PyGILState_Ensure();
+    cleanupPyObjects();
+    Py_Finalize();
+}
+
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cout << "Usage: ./learn <property-file>" << std::endl;
+        std::abort();
+    }
+#ifndef CHARON_HOME
+    std::cout << "CHARON_HOME is undefined. If you compiled with the provided "
+        << "CMake file this shouldn't happen, otherwise set CHARON_HOME" << std::endl;
+    std::abort();
+#endif
+
+    Attack_Initialize();
+    for (const auto e : AllNetTypes) {
+        networkAttacks[e] = Attack_Net(networks[e]);
     }
 
     PyGILState_Release(gstate);
     PyThreadState* tstate = PyEval_SaveThread();
+
     BayesianStrategy bi;
+    int dis,dos,sis,sos,dim;
+    bi.fill_strategy_size(dis, dos, sis, sos, dim);
 
-    bayesopt::Parameters params;
-    params.n_iterations = 400;
-    params.l_type = L_MCMC;
-    params.n_iter_relearn = 20;
-    params.load_save_flag = 2;
-
+    int world_rank, world_size;
+    MPI_Init(NULL, NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     if (world_rank == 0) {
+        std::cout << "world size: " << world_size << std::endl;
         // The main process takes care of the Bayesian optimization stuff
         std::cout << "STARTING ROOT" << std::endl;
         //int dim = bi.input_size() * bi.output_size();
-        int dim = bi.domain_input_size() * bi.domain_output_size() + bi.split_input_size() * bi.split_output_size();
-        std::cout << "dim: " << dim << std::endl;
+        // int dim = bi.domain_input_size() * bi.domain_output_size() + bi.split_input_size() * bi.split_output_size();
+        // std::cout << "dim: " << dim << std::endl;
 
         boost::numeric::ublas::vector<double> best_point(dim);
         boost::numeric::ublas::vector<double> lower_bound(dim);
         boost::numeric::ublas::vector<double> upper_bound(dim);
+        for (int i = 0; i < dim; i++) { lower_bound(i) = -1.0; upper_bound(i) = 1.0; }
 
-        for (int i = 0; i < dim; i++) {
-            lower_bound(i) = -1.0;
-            upper_bound(i) = 1.0;
-        }
-
+        std::string benchmarks = argv[1];
+        bayesopt::Parameters params;
+        params.n_iterations = 400;
+        params.l_type = L_MCMC;
+        params.n_iter_relearn = 20;
+        params.load_save_flag = 2;
         CegarOptimizer opt(dim, params, bi, world_size, benchmarks);
         opt.setBoundingBox(lower_bound, upper_bound);
         opt.optimize(best_point);
@@ -297,31 +332,29 @@ int main(int argc, char** argv) {
             MPI_Send(&done, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         }
 
-        std::cout << "*********** Best Point is: (";
-        for (int i = 0; i < dim; i++) {
-            std::cout << best_point(i) << ",";
-        }
+        std::cout << "*********** Best Point is: (" << best_point(0);
+        for (int i = 0; i < dim; i++) { std::cout << "," << best_point(i); }
         std::cout << ")\n";
+
     } else {
         struct timespec start, end;
         while(true) {
             //Receive properties from master process and then attempt to verify them.
             int world_rank;
             MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-            int numElements, solved, netId;
+            int numElements, solved, netType;
             MPI_Status status;
 
             MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             MPI_Get_count(&status, MPI_INT, &numElements);
-            MPI_Recv(&netId, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(&netType, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-            if (netId < 0) {
-                //Root process is done with optimization. We can exit
+            if (netType < 0) { //Root process is done with optimization. We can exit
                 std::cout << "Exiting" << std::endl;
                 break;
             }
-            Network net = networks[static_cast<Networks::Nets>(netId)];
-            PyObject *pgdAttack = networkAttacks[static_cast<Networks::Nets>(netId)];
+            Network net = networks[static_cast<NetType>(netType)];
+            PyObject *pgdAttack = networkAttacks[static_cast<NetType>(netType)];
 
             MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             MPI_Get_count(&status, MPI_DOUBLE, &numElements);
@@ -329,10 +362,6 @@ int main(int argc, char** argv) {
             MPI_Recv(&strategyAndProperty[0], numElements, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             // Interpret the given strategy and property.
-            int dos = bi.domain_output_size();
-            int dis = bi.domain_input_size();
-            int sos = bi.split_output_size();
-            int sis = bi.split_input_size();
             Mat domain_strat(dos, dis);
             Mat split_strat(sos, sis);
             int ds_size = dos*dis, ss_size = sos*sis;
@@ -342,29 +371,22 @@ int main(int argc, char** argv) {
                 split_strat(i/sis, i%sis) = strategyAndProperty[ds_size+i];
 
             //Deserialize property
-            int propertyStart = bi.domain_output_size() * bi.domain_input_size() + bi.split_output_size() * bi.split_input_size();
-            Vec lower((numElements-propertyStart)/2);
-            Vec upper((numElements-propertyStart)/2);
-            int lowerStart = propertyStart, upperStart = propertyStart + (numElements - propertyStart)/2;
-            for (int i = 0; i < (numElements-propertyStart)/2; i++) {
+            // int propertyStart = bi.domain_output_size() * bi.domain_input_size() + bi.split_output_size() * bi.split_input_size();
+            int propertyStart = dos*dis+sos*sis;
+            int propertySize = numElements-propertyStart;
+            Vec lower(propertySize/2);
+            Vec upper(propertySize/2);
+            int lowerStart = propertyStart, upperStart = propertyStart + propertySize/2;
+            for (int i = 0; i < propertySize/2; i++) {
                 lower(i) = strategyAndProperty[lowerStart+i];
                 upper(i) = strategyAndProperty[upperStart+i];
             }
 
             // Verify property
             Interval itv(lower, upper);
-            // We start by determining a target class. In order for the interval to
-            // be robust, all points must have the same label, so we can evaluate any
-            // point in the interval to get a target class.
-            Vec out = net.evaluate(lower);
-            int max_ind = 0;
-            double max = out(0);
-            for (int i = 1; i < out.size(); i++) {
-                if (out(i) > max) {
-                    max_ind = i;
-                    max = out(i);
-                }
-            }
+            // We start by determining a target class. In order for the interval to be robust, 
+            // all points must have the same label, so we can evaluate any point in the interval to get a target class.
+            int max_ind = net.predict(lower);
 
             try {
                 Vec counterexample(lower.size());
@@ -386,13 +408,10 @@ int main(int argc, char** argv) {
     }
 
     PyEval_RestoreThread(tstate);
-    gstate = PyGILState_Ensure();
-    for (const auto e : Networks::All) {
+    for (const auto e : AllNetTypes) {
         Py_DECREF(networkAttacks[e]);
     }
-    Py_DECREF(pModule);
-    Py_DECREF(pFunc);
-    Py_Finalize();
+    Attack_Finalize();
 
     MPI_Finalize();
 
