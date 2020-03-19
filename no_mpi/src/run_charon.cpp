@@ -15,6 +15,71 @@
 
 using namespace std;
 
+static PyObject* pModule;
+static PyObject* pAttackInit;
+static PyObject* pFunc;
+PyGILState_STATE gstate;
+std::vector<PyObject*> liveObjects;
+// static PyGILState_STATE gstate = PyGILState_Ensure();
+void Cleanup_PyObjects() {
+    for (PyObject* o: liveObjects)
+        Py_DECREF(o);
+    liveObjects.clear();
+}
+
+void Attack_Initialize() {
+    std::string cwd = CHARON_HOME;
+    Py_Initialize();
+    PyEval_InitThreads();
+    gstate = PyGILState_Ensure();
+    char s[5] = "path";
+    PyObject* sysPath = PySys_GetObject(s);
+    PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
+    PyList_Append(sysPath, newElem);
+    PySys_SetObject(s, sysPath);
+    PyObject* pName = PyString_FromString("interface");
+    PyObject* pModule = PyImport_Import(pName);
+    liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
+    // initialize_pgd_class
+    pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
+    if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
+        if (PyErr_Occurred()) { PyErr_Print(); }
+        Py_XDECREF(pAttackInit);
+        Cleanup_PyObjects();
+        throw std::runtime_error("Python error: Finding constructor");
+    }
+    liveObjects.push_back(pAttackInit);
+    // prepare the pointer to function run_attack
+    pFunc = PyObject_GetAttrString(pModule, "run_attack");
+    if (!pFunc || !PyCallable_Check(pFunc)) {
+        if (PyErr_Occurred()) { PyErr_Print(); }
+        Py_XDECREF(pFunc);
+        Cleanup_PyObjects();
+        throw std::runtime_error("Python error: loading attack function");
+    }
+    liveObjects.push_back(pFunc);
+}
+
+PyObject* Attack_Net(Network& net) {
+    PyObject* pgdAttack;
+    try {
+        pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
+    } catch (const std::runtime_error& e) {
+        Py_XDECREF(pgdAttack);
+        Cleanup_PyObjects();
+        throw e;
+    }
+    liveObjects.push_back(pgdAttack);
+    return pgdAttack;
+}
+
+void Attack_Finalize() {
+    gstate = PyGILState_Ensure();
+    Cleanup_PyObjects();
+    Py_Finalize();
+}
+
+
 int main(int argc, char** argv) {
 #ifndef CHARON_HOME
     std::cout << "CHARON_HOME is undefined. If you compiled with the provided "
@@ -32,14 +97,8 @@ int main(int argc, char** argv) {
     std::string strategy_filename = argv[3];
     std::string counterexample_filename = argv[4];
     Network net = read_network(network_filename);
-    Interval property = Interval(property_file);
+    Interval interval = Interval(property_file);
     auto si = std::unique_ptr<StrategyInterpretation>(new BayesianStrategy());
-    /*
-    int dis, dos, sis, sos, dim;
-    si->fill_strategy_size(dis, dos, sis, sos, dim);
-    std::cout << "dim: " << dim << "\n";
-    Vec strategyMat(dim);
-    */
     Vec strategyVec(si->size());
     std::ifstream in(strategy_filename);
     for(int i=0; !in.eof(); i++) {
@@ -56,70 +115,13 @@ int main(int argc, char** argv) {
     Py_Initialize();
     PyEval_InitThreads();
 
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
-    char s[5] = "path";
-    PyObject* sysPath = PySys_GetObject(s);
-
-    PyObject* newElem = PyString_FromString((cwd + std::string("src")).c_str());
-    PyList_Append(sysPath, newElem);
-    PySys_SetObject(s, sysPath);
-    PyObject* pName = PyString_FromString("interface");
-    PyObject* pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
-    if (pModule == NULL) {
-        PyErr_Print();
-        throw std::runtime_error("Python error: Loading module");
-    }
-
-    PyObject* pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
-    if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
-        if (PyErr_Occurred()) {
-            PyErr_Print();
-        }
-        Py_XDECREF(pAttackInit);
-        Py_DECREF(pModule);
-        throw std::runtime_error("Python error: Finding constructor");
-    }
-
-    PyObject* pgdAttack;
-    try {
-        pgdAttack = create_attack_from_network(net, pAttackInit);
-    } catch (const std::runtime_error& e) {
-        Py_DECREF(pAttackInit);
-        Py_DECREF(pModule);
-        throw e;
-    }
-
-    Py_DECREF(pAttackInit);
-    if (pgdAttack == NULL) {
-        Py_DECREF(pModule);
-        PyErr_Print();
-        throw std::runtime_error("Python error: Initializing attack");
-    }
-    PyObject* pFunc = PyObject_GetAttrString(pModule, "run_attack");
-    if (!pFunc || !PyCallable_Check(pFunc)) {
-        if (PyErr_Occurred()) {
-            PyErr_Print();
-        }
-        Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
-        throw std::runtime_error("Python error: loading attack function");
-    }
-
+    Attack_Initialize();
+    PyObject* pgdAttack = Attack_Net(net);
     PyGILState_Release(gstate);
     PyThreadState* tstate = PyEval_SaveThread();
 
-    Vec out = net.evaluate(property.lower);
-    int max_ind = 0;
-    double max = out(0); 
-    for (int i = 1; i < out.size(); i++) {
-        if (out(i) > max) {
-            max_ind = i;
-            max = out(i);
-        }
-    }
+    Vec x = interval.lower;
+    int y = net.predict(x);
 
     bool verified = false;
     bool timeout = false;
@@ -127,7 +129,7 @@ int main(int argc, char** argv) {
     try {
         int num_calls = 0;
         verified = verify_with_strategy(
-                property.lower, property, max_ind, net,
+                x, interval, y, net,
                 counterexample, num_calls, domain_strat, split_strat, *si,
                 TIMEOUT, pgdAttack, pFunc);
     } catch (const timeout_exception& e) {
@@ -148,11 +150,7 @@ int main(int argc, char** argv) {
     }
 
     PyEval_RestoreThread(tstate);
-    gstate = PyGILState_Ensure();
-    Py_DECREF(pgdAttack);
-    Py_DECREF(pModule);
-    Py_DECREF(pFunc);
-    Py_Finalize();
+    Attack_Finalize();
 
     return 0;
 }

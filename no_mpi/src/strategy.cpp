@@ -454,7 +454,7 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
 
 // Given an interval, determine whether the network is robust on that interval.
 // If not, give a counterexample.
-bool verify_with_strategy(const Vec& original,
+bool verify_with_strategy(const Vec& seed,
         const Interval& property, int max_ind, const Network& net,
         Vec& counterexample, int& num_calls,
         const Mat& domain_strategy, const Mat& split_strategy,

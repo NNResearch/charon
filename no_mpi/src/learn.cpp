@@ -42,6 +42,66 @@ typedef struct property {
 static PyObject* pModule;
 static PyObject* pAttackInit;
 static PyObject* pFunc;
+PyGILState_STATE gstate;
+std::vector<PyObject*> liveObjects;
+// static PyGILState_STATE gstate = PyGILState_Ensure();
+void Cleanup_PyObjects() {
+    for (PyObject* o: liveObjects)
+        Py_DECREF(o);
+    liveObjects.clear();
+}
+
+void Attack_Initialize() {
+    std::string cwd = CHARON_HOME;
+    Py_Initialize();
+    PyEval_InitThreads();
+    gstate = PyGILState_Ensure();
+    char s[5] = "path";
+    PyObject* sysPath = PySys_GetObject(s);
+    PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
+    PyList_Append(sysPath, newElem);
+    PySys_SetObject(s, sysPath);
+    PyObject* pName = PyString_FromString("interface");
+    PyObject* pModule = PyImport_Import(pName);
+    liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
+    // initialize_pgd_class
+    pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
+    if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
+        if (PyErr_Occurred()) { PyErr_Print(); }
+        Py_XDECREF(pAttackInit);
+        Cleanup_PyObjects();
+        throw std::runtime_error("Python error: Finding constructor");
+    }
+    liveObjects.push_back(pAttackInit);
+    // prepare the pointer to function run_attack
+    pFunc = PyObject_GetAttrString(pModule, "run_attack");
+    if (!pFunc || !PyCallable_Check(pFunc)) {
+        if (PyErr_Occurred()) { PyErr_Print(); }
+        Py_XDECREF(pFunc);
+        Cleanup_PyObjects();
+        throw std::runtime_error("Python error: loading attack function");
+    }
+    liveObjects.push_back(pFunc);
+}
+
+PyObject* Attack_Net(Network& net) {
+    PyObject* pgdAttack;
+    try {
+        pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
+    } catch (const std::runtime_error& e) {
+        Py_XDECREF(pgdAttack);
+        Cleanup_PyObjects();
+        throw e;
+    }
+    liveObjects.push_back(pgdAttack);
+    return pgdAttack;
+}
+
+void Attack_Finalize() {
+    gstate = PyGILState_Ensure();
+    Cleanup_PyObjects();
+    Py_Finalize();
+}
 
 static int numSample = 0;
 /** Holds information needed by the Bayesian optimization procedure. */
@@ -168,68 +228,6 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
         }
 };
 
-PyGILState_STATE gstate;
-std::vector<PyObject*> liveObjects;
-// static PyGILState_STATE gstate = PyGILState_Ensure();
-void cleanupPyObjects() {
-    for (PyObject* o: liveObjects)
-        Py_DECREF(o);
-    liveObjects.clear();
-}
-
-void Attack_Initialize() {
-    std::string cwd = CHARON_HOME;
-    Py_Initialize();
-    PyEval_InitThreads();
-    gstate = PyGILState_Ensure();
-    char s[5] = "path";
-    PyObject* sysPath = PySys_GetObject(s);
-    PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
-    PyList_Append(sysPath, newElem);
-    PySys_SetObject(s, sysPath);
-    PyObject* pName = PyString_FromString("interface");
-    PyObject* pModule = PyImport_Import(pName);
-    liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
-    // Py_DECREF(pName);
-    // initialize_pgd_class
-    pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
-    if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
-        if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pAttackInit);
-        // Py_DECREF(pModule);
-        cleanupPyObjects();
-        throw std::runtime_error("Python error: Finding constructor");
-    }
-    liveObjects.push_back(pAttackInit);
-    // prepare the pointer to function run_attack
-    pFunc = PyObject_GetAttrString(pModule, "run_attack");
-    if (!pFunc || !PyCallable_Check(pFunc)) {
-        if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pFunc);
-        // Py_DECREF(pModule);
-        cleanupPyObjects();
-        throw std::runtime_error("Python error: loading attack function");
-    }
-    liveObjects.push_back(pFunc);
-}
-
-PyObject* Attack_Net(Network& net) {
-    try {
-        PyObject* pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
-        liveObjects.push_back(pgdAttack);
-        return pgdAttack;
-    } catch (const std::runtime_error& e) {
-        Py_DECREF(pAttackInit);
-        Py_DECREF(pModule);
-        throw e;
-    }
-}
-
-void Attack_Finalize() {
-    gstate = PyGILState_Ensure();
-    cleanupPyObjects();
-    Py_Finalize();
-}
 
 int main(int argc, char** argv) {
     std::cout << "start the program..." << std::endl << std::flush;
@@ -278,9 +276,6 @@ int main(int argc, char** argv) {
     std::cout << ")\n";
 
     PyEval_RestoreThread(tstate);
-    for (const auto e : AllNetTypes) {
-        Py_DECREF(networkAttacks[e]);
-    }
     Attack_Finalize();
     return 0;
 }
