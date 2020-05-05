@@ -362,6 +362,7 @@ std::vector<Powerset> propagate_through_network(Interval input, int disjuncts, c
     return net.propagate_powerset(z);
 }
 
+
 static int input_no=0;
 // Run one iteration of the Charon loop.
 AbstractResult verify_abstract(AbstractInput ai, int max_ind,

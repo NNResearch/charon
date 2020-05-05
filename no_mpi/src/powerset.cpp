@@ -47,8 +47,6 @@ Abstract0& Abstract0::operator=(Abstract0&& other) {
     return *this;
 }
 
-
-
 Vec compute_center(elina_manager_t* man, elina_abstract0_t* abs) {
     elina_interval_t** itv;
     itv = elina_abstract0_to_box(man, abs);
@@ -85,14 +83,13 @@ Powerset::Powerset(AbsVec& ds,
     disjuncts = AbsVec(ds);
 }
 
-Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** update, unsigned int size, unsigned int s) const {
+Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** update, unsigned int size /* dim_size, as it can be sparse */, unsigned int s /* out_size */) const {
     AbsVec ds;
     for (Abs it : this->disjuncts) {
         elina_abstract0_t* it_dim;
-        size_t num_dims = elina_abstract0_dimension(it->man, it->value).realdim;
-        if (s > num_dims) {
-            // If the output size is greater than the input size, then we need to
-            // add dimensions to the input abstract value.
+        size_t num_dims = elina_abstract0_dimension(it->man, it->value).realdim; // in_size
+        if (s > num_dims) { // if (out_size > in_size) we add more dimensions
+            // If the output size is greater than the input size, then we need to add dimensions to the input abstract value.
             elina_dimchange_t* dc = elina_dimchange_alloc(0, s - num_dims);
             for (unsigned int i = 0; i < s - num_dims; i++) {
                 dc->dim[i] = num_dims;
@@ -102,9 +99,10 @@ Powerset Powerset::assign_linexpr_array(elina_dim_t* dims, elina_linexpr0_t** up
         } else {
             it_dim = elina_abstract0_copy(it->man, it->value);
         }
+        // Now it_dim is the disjunct with enough dimensions
 
-        elina_abstract0_t* abs = elina_abstract0_assign_linexpr_array(
-                it->man, false, it_dim, dims, update, size, NULL);
+        unsigned int dim_size = size;
+        elina_abstract0_t* abs = elina_abstract0_assign_linexpr_array(it->man, false, it_dim, dims, update, dim_size, NULL);
         elina_abstract0_free(it->man, it_dim);
         bool bot = elina_abstract0_is_bottom(it->man, abs);
         if (bot) {
@@ -150,8 +148,7 @@ Powerset Powerset::meet_lincons_array(elina_lincons0_array_t* cons) const {
 Powerset Powerset::permute_dimensions(elina_dimperm_t* dp) const {
     AbsVec ds;
     for (Abs it : this->disjuncts) {
-        elina_abstract0_t* abs = elina_abstract0_permute_dimensions(
-                it->man, false, it->value, dp);
+        elina_abstract0_t* abs = elina_abstract0_permute_dimensions(it->man, false, it->value, dp);
         ds.push_back(std::make_shared<Abstract0>(it->man, abs));
     }
     Powerset p(ds, this->size);
@@ -267,7 +264,7 @@ Powerset Powerset::relu() const {
         elina_dim_t dim = i;
         zlt = zlt.assign_linexpr_array(&dim, &zero, 1, num_dims);
 
-        // Join z with the modified zlt
+        // Join z with the modified zlt // A join B, A|~|B, means A /\ B, A or B
         z = z.join(zlt);
 
         elina_linexpr0_free(zero);
