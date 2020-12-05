@@ -34,10 +34,10 @@ void Attack_Initialize() {
     gstate = PyGILState_Ensure();
     char s[5] = "path";
     PyObject* sysPath = PySys_GetObject(s);
-    PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
+    PyObject* newElem = PyUnicode_FromString((cwd + "src").c_str());
     PyList_Append(sysPath, newElem);
     PySys_SetObject(s, sysPath);
-    PyObject* pName = PyString_FromString("interface");
+    PyObject* pName = PyUnicode_FromString("interface");
     PyObject* pModule = PyImport_Import(pName);
     liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
     // initialize_pgd_class

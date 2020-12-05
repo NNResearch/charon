@@ -15,8 +15,11 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # import tensorflow.compat.v1 as tf 
 # tf.disable_v2_behavior()
-import tensorflow as tf 
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# import tensorflow as tf 
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+tf.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 class IntervalPGDAttack:
     def __init__(self, model, k, a, random_start, loss_func):
@@ -124,10 +127,13 @@ class Model:
         self.num_correct = tf.reduce_sum(tf.cast(correct_prediction, tf.int64))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-def initialize_pgd_class(layers):
+
+def init_attack(layers):
+    print('initialize pgd class')
     model = Model(layers)
     attack = IntervalPGDAttack(model, 500, 0.01, False, 'xent')
     return attack
+
 
 def run_attack(attack, x, y, lower, upper):
     with tf.Session(graph=attack.graph) as sess:
@@ -139,6 +145,7 @@ def run_attack(attack, x, y, lower, upper):
                 sess)
     return x_adv.flatten().tolist()
 
+
 def run_model(attack, x, y):
     with tf.Session(graph=attack.graph) as sess:
         score = sess.run(attack.model.pre_softmax,
@@ -146,3 +153,6 @@ def run_model(attack, x, y):
                              attack.model.y_input: np.array([y])})
     return score.flatten().tolist()
 
+
+def test():
+    print("interface testing.")

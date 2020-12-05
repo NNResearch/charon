@@ -225,7 +225,7 @@ Vec find_counterexample(Interval input, int max_ind, const Network& net, PyObjec
     Py_INCREF(pgdAttack);
     PyTuple_SetItem(pArgs, 0, pgdAttack);
     PyTuple_SetItem(pArgs, 1, eigen_vector_to_python_list(ce));
-    PyObject* pNum = PyInt_FromLong(max_ind);
+    PyObject* pNum = PyLong_FromLong(max_ind);
     PyTuple_SetItem(pArgs, 2, pNum);
     PyTuple_SetItem(pArgs, 3, eigen_vector_to_python_list(lower));
     PyTuple_SetItem(pArgs, 4, eigen_vector_to_python_list(upper));
@@ -259,19 +259,19 @@ PyObject* create_attack_from_network(const Network& net, PyObject* pAttackInit) 
         std::shared_ptr<Layer> l = net.get_layer(i);
         LayerType lt = l->get_type();
         PyObject* in_size = PyTuple_New(3);
-        PyTuple_SetItem(in_size, 0, PyInt_FromLong(l->get_input_height()));
-        PyTuple_SetItem(in_size, 1, PyInt_FromLong(l->get_input_width()));
-        PyTuple_SetItem(in_size, 2, PyInt_FromLong(l->get_input_depth()));
+        PyTuple_SetItem(in_size, 0, PyLong_FromLong(l->get_input_height()));
+        PyTuple_SetItem(in_size, 1, PyLong_FromLong(l->get_input_width()));
+        PyTuple_SetItem(in_size, 2, PyLong_FromLong(l->get_input_depth()));
         PyObject* out_size = PyTuple_New(3);
-        PyTuple_SetItem(out_size, 0, PyInt_FromLong(l->get_output_height()));
-        PyTuple_SetItem(out_size, 1, PyInt_FromLong(l->get_output_width()));
-        PyTuple_SetItem(out_size, 2, PyInt_FromLong(l->get_output_depth()));
+        PyTuple_SetItem(out_size, 0, PyLong_FromLong(l->get_output_height()));
+        PyTuple_SetItem(out_size, 1, PyLong_FromLong(l->get_output_width()));
+        PyTuple_SetItem(out_size, 2, PyLong_FromLong(l->get_output_depth()));
         PyObject* pl = PyTuple_New(5);
         PyTuple_SetItem(pl, 1, in_size);
         PyTuple_SetItem(pl, 2, out_size);
         if (lt == CONV) {
             std::shared_ptr<ConvLayer> cl = std::static_pointer_cast<ConvLayer>(l);
-            PyTuple_SetItem(pl, 0, PyString_FromString("conv"));
+            PyTuple_SetItem(pl, 0, PyUnicode_FromString("conv"));
 
             PyObject* filter = PyList_New(cl->filter_height);
             for (int j = 0; j < cl->filter_height; j++) {
@@ -299,14 +299,14 @@ PyObject* create_attack_from_network(const Network& net, PyObject* pAttackInit) 
             PyTuple_SetItem(pl, 4, biases);
         } else if (lt == FC) {
             std::shared_ptr<FCLayer> fcl = std::static_pointer_cast<FCLayer>(l);
-            PyTuple_SetItem(pl, 0, PyString_FromString("fc"));
+            PyTuple_SetItem(pl, 0, PyUnicode_FromString("fc"));
             PyTuple_SetItem(pl, 3, eigen_matrix_to_python_list(fcl->weight));
             PyTuple_SetItem(pl, 4, eigen_vector_to_python_list(fcl->bias));
         } else {
             std::shared_ptr<MaxPoolLayer> mpl = std::static_pointer_cast<MaxPoolLayer>(l);
-            PyTuple_SetItem(pl, 0, PyString_FromString("maxpool"));
-            PyTuple_SetItem(pl, 3, PyInt_FromLong(mpl->window_height));
-            PyTuple_SetItem(pl, 4, PyInt_FromLong(mpl->window_width));
+            PyTuple_SetItem(pl, 0, PyUnicode_FromString("maxpool"));
+            PyTuple_SetItem(pl, 3, PyLong_FromLong(mpl->window_height));
+            PyTuple_SetItem(pl, 4, PyLong_FromLong(mpl->window_width));
         }
         PyList_SetItem(ls, i, pl);
     }

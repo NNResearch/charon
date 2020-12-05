@@ -6,6 +6,7 @@
 #include "network.hpp"
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <cstdlib>
 #include <time.h>
@@ -13,6 +14,22 @@
 #include <Python.h>
 #include <zonotope.h>
 #include <bayesopt/bayesopt.hpp>
+
+#define gray "\033[0;37;90m"
+#define reset "\033[0m"
+
+#define log(x) do {\
+    std::cout << std::left << std::setw(60) << x << gray \
+            << "[func:" << std::setw(20) << __FUNCTION__ \
+            << " file:" << std::setw(15) << std::string(__FILE__).substr(std::string(__FILE__).find_last_of("/\\")+1) \
+            << " line:" << std::setw(3) << __LINE__ << "]" << reset << std::endl; \
+} while(0) 
+// #define DEBUG(fmt, args...) printf("\033[31m[TEST: %s:%d:%s:%s] "#fmt"\033[0m\r\n", __func__, __LINE__, __DATE__, __TIME__, ##args)
+#define INFO(fmt, args...) printf("\033[37;90m[INFO: %s:#%d] "#fmt"\033[0m\r\n", __func__, __LINE__, ##args)
+#define ERROR(fmt, args...) printf("\033[31m[ERROR: %s:%d] "#fmt"\033[0m\r\n", __func__, __LINE__, ##args)
+#define FUNC_ENTER printf("\033[37;90m>>>> function %s ------------------------------------- \033[0m\r\n", __func__)
+#define FUNC_EXIT printf("\033[37;90m<<<<: function %s ------------------------------------- \033[0m\r\n", __func__)
+
 
 // #define TIMEOUT 1000
 #define TIMEOUT 1000
@@ -27,7 +44,7 @@ static const NetType AllNetTypes[] = {ACAS_XU};
 
 /** A map from network descriptors to network objects. */
 static std::map<NetType, Network> networks = {
-    {NetType::ACAS_XU, read_network(CHARON_HOME + std::string("example/acas_xu_1_1.txt"))}
+    {NetType::ACAS_XU, read_network(CHARON_HOME + std::string("../example/acas_xu_1_1.txt"))}
 };
 
 /** A map from network descriptors to the associated PGD methods. */
@@ -39,69 +56,112 @@ typedef struct property {
 } Property;
 
 
-static PyObject* pModule;
-static PyObject* pAttackInit;
-static PyObject* pFunc;
+static PyObject* pFile = NULL;
+static PyObject* pAttackModule = NULL;
+static PyObject* pInitAttack = NULL;
+static PyObject* pRunAttack = NULL;
 PyGILState_STATE gstate;
-std::vector<PyObject*> liveObjects;
+// std::vector<PyObject*> liveObjects;
 // static PyGILState_STATE gstate = PyGILState_Ensure();
 void Cleanup_PyObjects() {
-    for (PyObject* o: liveObjects)
-        Py_DECREF(o);
-    liveObjects.clear();
+    // for (PyObject* o: liveObjects)
+    //     Py_DECREF(o);
+    // liveObjects.clear();
+}
+
+PyObject *get_py_module(const char *mod_name) {
+    FUNC_ENTER;
+    PyObject *pModule;
+    // if (pModule==NULL) {
+        pModule = PyImport_ImportModule(mod_name);
+        if (pModule == NULL) {
+            ERROR("ERROR importing module");
+            Py_XDECREF(pModule);
+            throw std::runtime_error("Python error: Can not import module");
+        }
+    // }
+    FUNC_EXIT;
+    return pModule;
+}
+
+/* Load a symbol from a module */
+PyObject *get_py_function(PyObject *pModule, const char *func_name) {
+    FUNC_ENTER;
+    PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
+    if (!pFunc || !PyCallable_Check(pFunc)) {
+        log("call get_by_function");
+        if (PyErr_Occurred()) { PyErr_Print(); }
+        Py_XDECREF(pFunc);
+        throw std::runtime_error("Python error: Can not get function");
+    }
+    FUNC_EXIT;
+    return pFunc;
 }
 
 void Attack_Initialize() {
+    FUNC_ENTER;
     std::string cwd = CHARON_HOME;
+    std::cout << "cwd:" << cwd << std::endl;
     Py_Initialize();
     PyEval_InitThreads();
-    gstate = PyGILState_Ensure();
-    char s[5] = "path";
-    PyObject* sysPath = PySys_GetObject(s);
-    PyObject* newElem = PyString_FromString((cwd + "/src").c_str());
-    PyList_Append(sysPath, newElem);
-    PySys_SetObject(s, sysPath);
-    PyObject* pName = PyString_FromString("interface");
-    PyObject* pModule = PyImport_Import(pName);
-    liveObjects.insert(liveObjects.end(), {sysPath, newElem, pName, pModule});
-    // initialize_pgd_class
-    pAttackInit = PyObject_GetAttrString(pModule, "initialize_pgd_class");
-    if (!pAttackInit || !PyCallable_Check(pAttackInit)) {
+    // get lock
+    // gstate = PyGILState_Ensure();
+    // char s[5] = "path";
+    // PyObject* sysPath = PySys_GetObject(s);
+    log("append attack path into sys.path");
+    PyObject * sys = PyImport_ImportModule("sys");
+    PyObject * path = PyObject_GetAttrString(sys, "path");
+    PyList_Append(path, PyUnicode_FromString((cwd + "src").c_str()));
+
+    PyRun_SimpleString("import sys; print(sys.path)");
+    PyRun_SimpleString("import attack; attack.test()");
+
+    log("import file attack.py");
+    pRunAttack = get_py_module("attack");
+    pInitAttack = get_py_function(pRunAttack, "init_attack");
+    // pInitAttack = PyObject_GetAttrString(pRunAttack, "initialize_pgd_class");
+    // pInitAttack = import_name("attack", "initialize_pgd_class");
+    log("imported");
+    if (!pInitAttack || !PyCallable_Check(pInitAttack)) {
+        log("call pInitAttack");
         if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pAttackInit);
+        Py_XDECREF(pInitAttack);
         Cleanup_PyObjects();
         throw std::runtime_error("Python error: Finding constructor");
     }
-    liveObjects.push_back(pAttackInit);
+    // liveObjects.push_back(pInitAttack);
     // prepare the pointer to function run_attack
-    pFunc = PyObject_GetAttrString(pModule, "run_attack");
-    if (!pFunc || !PyCallable_Check(pFunc)) {
+    pRunAttack = PyObject_GetAttrString(pRunAttack, "run_attack");
+    if (!pRunAttack || !PyCallable_Check(pRunAttack)) {
         if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pFunc);
+        Py_XDECREF(pRunAttack);
         Cleanup_PyObjects();
         throw std::runtime_error("Python error: loading attack function");
     }
-    liveObjects.push_back(pFunc);
+    // liveObjects.push_back(pRunAttack);
+    FUNC_EXIT;
 }
 
 PyObject* Attack_Net(Network& net) {
     PyObject* pgdAttack;
     try {
-        pgdAttack = create_attack_from_network(net, pAttackInit); // this return an object to IntervalPGDAttack
+        pgdAttack = create_attack_from_network(net, pInitAttack); // this return an object to IntervalPGDAttack
     } catch (const std::runtime_error& e) {
         Py_XDECREF(pgdAttack);
         Cleanup_PyObjects();
         throw e;
     }
-    liveObjects.push_back(pgdAttack);
+    // liveObjects.push_back(pgdAttack);
     return pgdAttack;
 }
 
 void Attack_Finalize() {
-    gstate = PyGILState_Ensure();
+    // gstate = PyGILState_Ensure();
     Cleanup_PyObjects();
     Py_Finalize();
 }
+
+
 
 static int numSample = 0;
 /** Holds information needed by the Bayesian optimization procedure. */
@@ -132,9 +192,9 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                 while(std::getline(fd, line))
                     prop_files.push_back(line);
 
-                for (std::string& s : prop_files) {
+                for (std::string& f : prop_files) {
                     std::vector<std::string> results;
-                    std::stringstream iss(s);
+                    std::stringstream iss(f);
                     for(std::string s; iss >> s;) {
                         results.push_back(s);
                     }
@@ -217,7 +277,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
             try {
                 verify_with_strategy(x, interval, y, net, counterexample, num_calls, domain_strat, split_strat, 
-                        strategy_interp, TIMEOUT, pgdAttack, pFunc);
+                        strategy_interp, TIMEOUT, pgdAttack, pRunAttack);
             } catch (timeout_exception e) {
                 // This exception indicates a timeout
                 return 0.0;
@@ -230,6 +290,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
 
 
 int main(int argc, char** argv) {
+    FUNC_ENTER;
     std::cout << "start the program..." << std::endl << std::flush;
     if (argc != 2) {
         std::cout << "Usage: ./learn <property-file>" << std::endl;
@@ -240,21 +301,25 @@ int main(int argc, char** argv) {
         << "CMake file this shouldn't happen, otherwise set CHARON_HOME" << std::endl;
     std::abort();
 #endif
+    std::cout << "CHARON_HOME:" << CHARON_HOME << std::endl;
 
+    log("attack initialize");
     Attack_Initialize();
     for (const auto e : AllNetTypes) {
         networkAttacks[e] = Attack_Net(networks[e]);
     }
 
-    PyGILState_Release(gstate);
+    log("lock release");
+    // PyGILState_Release(gstate);
     PyThreadState* tstate = PyEval_SaveThread();
 
+    log("fill strategy size");
     BayesianStrategy bi;
     int dis,dos,sis,sos,dim;
     bi.fill_strategy_size(dis, dos, sis, sos, dim);
 
     // The main process takes care of the Bayesian optimization stuff
-    std::cout << "STARTING ROOT" << std::endl;
+    log("STARTING ROOT");
 
     boost::numeric::ublas::vector<double> best_point(dim);
     boost::numeric::ublas::vector<double> lower_bound(dim);
@@ -277,6 +342,7 @@ int main(int argc, char** argv) {
 
     PyEval_RestoreThread(tstate);
     Attack_Finalize();
+    FUNC_EXIT;
     return 0;
 }
 
