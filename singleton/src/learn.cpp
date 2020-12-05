@@ -32,7 +32,7 @@ static const NetType AllNetTypes[] = {ACAS_XU};
 
 /** A map from network descriptors to network objects. */
 static std::map<NetType, Network> networks = {
-    {NetType::ACAS_XU, read_network(SINGLETON_HOME + std::string("../example/acas_xu_1_1.txt"))}
+    {NetType::ACAS_XU, read_network(SINGLETON_HOME + std::string("example/acas_xu_1_1.txt"))}
 };
 
 /** A map from network descriptors to the associated PGD methods. */
@@ -43,12 +43,8 @@ typedef struct property {
     NetType net;
 } Property;
 
-
-// static PyObject* pFile = NULL;
-// static PyObject* pAttackModule = NULL;
 static PyObject* pInitAttack = NULL;
 static PyObject* pRunAttack = NULL;
-PyGILState_STATE gstate;
 
 PyObject *get_py_module(const char *mod_name) {
     FUNC_ENTER;
@@ -146,7 +142,7 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                     }
                     Property p;
                     std::cout << "property file path:" << SINGLETON_HOME << std::string(results[0]) << std::endl;
-                    p.itv = Interval(SINGLETON_HOME + std::string("../") + std::string(results[0]));
+                    p.itv = Interval(SINGLETON_HOME + std::string(results[0]));
                     p.net = NetType::ACAS_XU;
                     properties.push_back(p);
                 }
@@ -178,8 +174,6 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             std::cout << " Strategy: \n";
             std::cout << "   |- domain: "<< mat_to_str(domain_strat) << "\n";
             std::cout << "   |- split : "<< mat_to_str(split_strat) << "\n";
-            std::cout << "Evaluating: (domain)" << mat_to_str(domain_strat) << std::endl;
-            std::cout << "and: (split)" << mat_to_str(split_strat) << std::endl;
             // For some given time budget (per property), see how many properties we can verify
             int count = 0;
             double total_time = 0.0;
@@ -236,6 +230,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
 };
 
 
+
+
 int main(int argc, char** argv) {
     FUNC_ENTER;
     std::cout << "start the program..." << std::endl << std::flush;
@@ -261,7 +257,6 @@ int main(int argc, char** argv) {
     bi.fill_strategy_size(dis, dos, sis, sos, dim);
 
     // The main process takes care of the Bayesian optimization stuff
-    LOG("STARTING ROOT");
     LOG("init best point, lower bound and upper bound");
     boost::numeric::ublas::vector<double> best_point(dim);
     boost::numeric::ublas::vector<double> lower_bound(dim);

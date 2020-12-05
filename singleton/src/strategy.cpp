@@ -477,6 +477,7 @@ bool verify_with_strategy(const Vec& seed,
     std::vector<std::future<AbstractResult>> results;
     bool verified = false;
     bool falsified = false;
+    std::cout << "NUM_THREADS=" << NUM_THREADS << std::endl;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     try {
         while (true) {
@@ -488,13 +489,13 @@ bool verify_with_strategy(const Vec& seed,
                 // verify_abstract(input, max_ind, net, pgdAttack, pFunc, &interp, domain_strategy) 
                 results.push_back(std::async(std::launch::async, verify_abstract, input,
                             max_ind, net, pgdAttack, pFunc, &interp, domain_strategy));
-                /*
-                 * std::string msg = "?"; 
-                 * index=results.size()-1; 
-                 * if (results[index].get().verified) msg="o"; 
-                 * else if (results[index].get().falsified) msg="x"; 
-                 * std::cout << msg << std::flush;
-                 */
+                
+                std::string msg = "?"; 
+                size_t index=results.size()-1; 
+                if (results[index].get().verified) msg="o"; 
+                else if (results[index].get().falsified) msg="x"; 
+                std::cout << msg << std::flush;
+                
             }
             // If there are no more regions to verify then the property has been
             // proven.
