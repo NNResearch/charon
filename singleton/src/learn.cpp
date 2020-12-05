@@ -1,6 +1,7 @@
 /* Training module for Charon
 */
 
+#include "utils.hpp"
 #include "strategy.hpp"
 #include "powerset.hpp"
 #include "network.hpp"
@@ -15,20 +16,7 @@
 #include <zonotope.h>
 #include <bayesopt/bayesopt.hpp>
 
-#define gray "\033[0;37;90m"
-#define reset "\033[0m"
 
-#define log(x) do {\
-    std::cout << std::left << std::setw(60) << x << gray \
-            << "[func:" << std::setw(20) << __FUNCTION__ \
-            << " file:" << std::setw(15) << std::string(__FILE__).substr(std::string(__FILE__).find_last_of("/\\")+1) \
-            << " line:" << std::setw(3) << __LINE__ << "]" << reset << std::endl; \
-} while(0) 
-// #define DEBUG(fmt, args...) printf("\033[31m[TEST: %s:%d:%s:%s] "#fmt"\033[0m\r\n", __func__, __LINE__, __DATE__, __TIME__, ##args)
-#define INFO(fmt, args...) printf("\033[37;90m[INFO: %s:#%d] "#fmt"\033[0m\r\n", __func__, __LINE__, ##args)
-#define ERROR(fmt, args...) printf("\033[31m[ERROR: %s:%d] "#fmt"\033[0m\r\n", __func__, __LINE__, ##args)
-#define FUNC_ENTER printf("\033[37;90m>>>> function %s ------------------------------------- \033[0m\r\n", __func__)
-#define FUNC_EXIT printf("\033[37;90m<<<<: function %s ------------------------------------- \033[0m\r\n", __func__)
 
 
 // #define TIMEOUT 1000
@@ -44,7 +32,7 @@ static const NetType AllNetTypes[] = {ACAS_XU};
 
 /** A map from network descriptors to network objects. */
 static std::map<NetType, Network> networks = {
-    {NetType::ACAS_XU, read_network(CHARON_HOME + std::string("../example/acas_xu_1_1.txt"))}
+    {NetType::ACAS_XU, read_network(SINGLETON_HOME + std::string("../example/acas_xu_1_1.txt"))}
 };
 
 /** A map from network descriptors to the associated PGD methods. */
@@ -56,18 +44,11 @@ typedef struct property {
 } Property;
 
 
-static PyObject* pFile = NULL;
-static PyObject* pAttackModule = NULL;
+// static PyObject* pFile = NULL;
+// static PyObject* pAttackModule = NULL;
 static PyObject* pInitAttack = NULL;
 static PyObject* pRunAttack = NULL;
 PyGILState_STATE gstate;
-// std::vector<PyObject*> liveObjects;
-// static PyGILState_STATE gstate = PyGILState_Ensure();
-void Cleanup_PyObjects() {
-    // for (PyObject* o: liveObjects)
-    //     Py_DECREF(o);
-    // liveObjects.clear();
-}
 
 PyObject *get_py_module(const char *mod_name) {
     FUNC_ENTER;
@@ -89,7 +70,7 @@ PyObject *get_py_function(PyObject *pModule, const char *func_name) {
     FUNC_ENTER;
     PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
     if (!pFunc || !PyCallable_Check(pFunc)) {
-        log("call get_by_function");
+        LOG("call get_by_function");
         if (PyErr_Occurred()) { PyErr_Print(); }
         Py_XDECREF(pFunc);
         throw std::runtime_error("Python error: Can not get function");
@@ -100,65 +81,30 @@ PyObject *get_py_function(PyObject *pModule, const char *func_name) {
 
 void Attack_Initialize() {
     FUNC_ENTER;
-    std::string cwd = CHARON_HOME;
+    std::string cwd = SINGLETON_HOME;
     std::cout << "cwd:" << cwd << std::endl;
     Py_Initialize();
-    PyEval_InitThreads();
-    // get lock
-    // gstate = PyGILState_Ensure();
-    // char s[5] = "path";
-    // PyObject* sysPath = PySys_GetObject(s);
-    log("append attack path into sys.path");
+    LOG("append attack path into sys.path");
     PyObject * sys = PyImport_ImportModule("sys");
     PyObject * path = PyObject_GetAttrString(sys, "path");
     PyList_Append(path, PyUnicode_FromString((cwd + "src").c_str()));
+    // testing
+    // PyRun_SimpleString("import sys; print(sys.path)");
+    // PyRun_SimpleString("import attack; attack.test()");
 
-    PyRun_SimpleString("import sys; print(sys.path)");
-    PyRun_SimpleString("import attack; attack.test()");
-
-    log("import file attack.py");
+    LOG("import module attack.py");
     pRunAttack = get_py_module("attack");
+    LOG("import function init_attack");
     pInitAttack = get_py_function(pRunAttack, "init_attack");
-    // pInitAttack = PyObject_GetAttrString(pRunAttack, "initialize_pgd_class");
-    // pInitAttack = import_name("attack", "initialize_pgd_class");
-    log("imported");
-    if (!pInitAttack || !PyCallable_Check(pInitAttack)) {
-        log("call pInitAttack");
-        if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pInitAttack);
-        Cleanup_PyObjects();
-        throw std::runtime_error("Python error: Finding constructor");
-    }
-    // liveObjects.push_back(pInitAttack);
-    // prepare the pointer to function run_attack
+    LOG("import function run_attack");
     pRunAttack = PyObject_GetAttrString(pRunAttack, "run_attack");
-    if (!pRunAttack || !PyCallable_Check(pRunAttack)) {
-        if (PyErr_Occurred()) { PyErr_Print(); }
-        Py_XDECREF(pRunAttack);
-        Cleanup_PyObjects();
-        throw std::runtime_error("Python error: loading attack function");
-    }
-    // liveObjects.push_back(pRunAttack);
+    LOG("imported");
     FUNC_EXIT;
 }
 
 PyObject* Attack_Net(Network& net) {
-    PyObject* pgdAttack;
-    try {
-        pgdAttack = create_attack_from_network(net, pInitAttack); // this return an object to IntervalPGDAttack
-    } catch (const std::runtime_error& e) {
-        Py_XDECREF(pgdAttack);
-        Cleanup_PyObjects();
-        throw e;
-    }
-    // liveObjects.push_back(pgdAttack);
+    PyObject* pgdAttack = create_attack_from_network(net, pInitAttack); // this return an object to IntervalPGDAttack
     return pgdAttack;
-}
-
-void Attack_Finalize() {
-    // gstate = PyGILState_Ensure();
-    Cleanup_PyObjects();
-    Py_Finalize();
 }
 
 
@@ -199,7 +145,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
                         results.push_back(s);
                     }
                     Property p;
-                    p.itv = Interval(CHARON_HOME + std::string(results[0]));
+                    std::cout << "property file path:" << SINGLETON_HOME << std::string(results[0]) << std::endl;
+                    p.itv = Interval(SINGLETON_HOME + std::string("../") + std::string(results[0]));
                     p.net = NetType::ACAS_XU;
                     properties.push_back(p);
                 }
@@ -231,8 +178,8 @@ class CegarOptimizer: public bayesopt::ContinuousModel {
             std::cout << " Strategy: \n";
             std::cout << "   |- domain: "<< mat_to_str(domain_strat) << "\n";
             std::cout << "   |- split : "<< mat_to_str(split_strat) << "\n";
-            // std::cout << "Evaluating: (domain)" << mat_to_str(domain_strat) << std::endl;
-            // std::cout << "and: (split)" << mat_to_str(split_strat) << std::endl;
+            std::cout << "Evaluating: (domain)" << mat_to_str(domain_strat) << std::endl;
+            std::cout << "and: (split)" << mat_to_str(split_strat) << std::endl;
             // For some given time budget (per property), see how many properties we can verify
             int count = 0;
             double total_time = 0.0;
@@ -296,52 +243,52 @@ int main(int argc, char** argv) {
         std::cout << "Usage: ./learn <property-file>" << std::endl;
         std::abort();
     }
-#ifndef CHARON_HOME
-    std::cout << "CHARON_HOME is undefined. If you compiled with the provided "
-        << "CMake file this shouldn't happen, otherwise set CHARON_HOME" << std::endl;
+#ifndef SINGLETON_HOME
+    std::cout << "SINGLETON_HOME is undefined. If you compiled with the provided "
+        << "CMake file this shouldn't happen, otherwise set SINGLETON_HOME" << std::endl;
     std::abort();
 #endif
-    std::cout << "CHARON_HOME:" << CHARON_HOME << std::endl;
 
-    log("attack initialize");
+    LOG("attack initialize");
     Attack_Initialize();
     for (const auto e : AllNetTypes) {
         networkAttacks[e] = Attack_Net(networks[e]);
     }
 
-    log("lock release");
-    // PyGILState_Release(gstate);
-    PyThreadState* tstate = PyEval_SaveThread();
-
-    log("fill strategy size");
+    LOG("fill strategy size");
     BayesianStrategy bi;
     int dis,dos,sis,sos,dim;
     bi.fill_strategy_size(dis, dos, sis, sos, dim);
 
     // The main process takes care of the Bayesian optimization stuff
-    log("STARTING ROOT");
-
+    LOG("STARTING ROOT");
+    LOG("init best point, lower bound and upper bound");
     boost::numeric::ublas::vector<double> best_point(dim);
     boost::numeric::ublas::vector<double> lower_bound(dim);
     boost::numeric::ublas::vector<double> upper_bound(dim);
     for (int i = 0; i < dim; i++) { lower_bound(i) = -1.0; upper_bound(i) = 1.0; }
-
+    
+    LOG("init params for bayesian optimization");
     std::string benchmarks = argv[1];
     bayesopt::Parameters params;
     params.n_iterations = 400;
     params.l_type = L_MCMC;
     params.n_iter_relearn = 20;
     params.load_save_flag = 2;
+
+    LOG("create cegar-optimizer object");
     CegarOptimizer opt(dim, params, bi, benchmarks);
+    LOG("set bounding box");
     opt.setBoundingBox(lower_bound, upper_bound);
+    LOG("do optimize");
     opt.optimize(best_point);
+    LOG("after optimize");
 
     std::cout << "*********** Best Point is: (" << best_point(0);
     for (int i = 0; i < dim; i++) { std::cout << "," << best_point(i); }
     std::cout << ")\n";
 
-    PyEval_RestoreThread(tstate);
-    Attack_Finalize();
+    Py_Finalize();
     FUNC_EXIT;
     return 0;
 }

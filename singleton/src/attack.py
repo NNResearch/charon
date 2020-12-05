@@ -10,16 +10,12 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-# import tensorflow as tf
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# import tensorflow.compat.v1 as tf 
-# tf.disable_v2_behavior()
-# import tensorflow as tf 
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import tensorflow.compat.v1 as tf
+# tf.disable_resource_variables()
+tf.logging.set_verbosity(tf.logging.FATAL)
 tf.disable_v2_behavior()
-tf.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 class IntervalPGDAttack:
     def __init__(self, model, k, a, random_start, loss_func):
@@ -155,4 +151,4 @@ def run_model(attack, x, y):
 
 
 def test():
-    print("interface testing.")
+    print("testing if module and functions can be found.")

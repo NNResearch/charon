@@ -22,4 +22,4 @@ target_include_directories(run PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../eigen)
 target_link_libraries(run cegar_net gmp mpfr zonotope elinaux python3.5 pthread dl util m gomp)
 
 set(CMAKE_CXX_COMPILER mpicxx)
-add_definitions(-DCHARON_HOME="${CMAKE_CURRENT_SOURCE_DIR}/")
+add_definitions(-DSINGLETON_HOME="${CMAKE_CURRENT_SOURCE_DIR}/")

@@ -28,7 +28,7 @@ void Cleanup_PyObjects() {
 }
 
 void Attack_Initialize() {
-    std::string cwd = CHARON_HOME;
+    std::string cwd = SINGLETON_HOME;
     Py_Initialize();
     PyEval_InitThreads();
     gstate = PyGILState_Ensure();
@@ -81,12 +81,12 @@ void Attack_Finalize() {
 
 
 int main(int argc, char** argv) {
-#ifndef CHARON_HOME
-    std::cout << "CHARON_HOME is undefined. If you compiled with the provided "
-        << "CMake file this shouldn't happen, otherwise set CHARON_HOME" << std::endl;
+#ifndef SINGLETON_HOME
+    std::cout << "SINGLETON_HOME is undefined. If you compiled with the provided "
+        << "CMake file this shouldn't happen, otherwise set SINGLETON_HOME" << std::endl;
     std::abort();
 #endif
-    std::string cwd = CHARON_HOME;
+    std::string cwd = SINGLETON_HOME;
     if (argc != 5) {
         std::cout << "Usage: ./run <property-file> <network-file> <strategy-file>"
             << " <counterexample-file>" << std::endl;
