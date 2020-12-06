@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
+project(Singleton)
 
 execute_process(COMMAND python3.5-config --cflags OUTPUT_VARIABLE PY_C_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND python3.5-config --ldflags OUTPUT_VARIABLE PY_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
