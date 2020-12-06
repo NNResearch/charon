@@ -12,6 +12,28 @@ linked websites. For MPI you can choose your favorite MPI implementation, or
 use [Open MPI](https://www.open-mpi.org/) if you just want a quick start. Open
 MPI can usually be found in the system package manager.
 
+### BayesOpt
+For BayesOpt, if we would like to use python3.5 or python3.6 (python3.6 in particular),
+we need to set invoke cmake with numpy_include_dir, such as
+`cmake -DBAYESOPT_PYTHON_INTERFACE=ON -DPYTHON_NUMPY_INCLUDE_DIR=/usr/local/lib/python3.6/dist-packages/numpy/core/include`,
+also we need to modify the PythonMagic.cmake:
+```
+set(Python_ADDITIONAL_VERSIONS 3.6)
+# include(FindPythonInterp)
+find_package(PythonInterp)
+## check python
+find_package(PythonLibs 3.6) # using PYTHON_INCLUDE_PATH instead of PYTHON_INCLUDE_DIR
+message(STATUS "<> PYTHON_INCLUDE_PATH: ${PYTHON_INCLUDE_PATH}")
+```
+
+An alternative and more advanced configure is
+```
+cmake -DBAYESOPT_PYTHON_INTERFACE=ON -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so 
+-DPYTHON_INCLUDE_DIR=$(python-config --prefix)/include/python3.6 -DPYTHON_NUMPY_INCLUDE_DIR=/usr/lib/python3.6/dist-packages/numpy/core/include
+```
+For more detail, please see the [issue#26](https://github.com/rmcantin/bayesopt/issues/26)
+
+
 # Build
 Once you have ELINA, BayesOpt, and an MPI implementation installed, you can
 build Charon as follows:
