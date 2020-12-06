@@ -55,7 +55,7 @@ Vec BayesianStrategy::domain_featurize( const Network& net, const Interval& inpu
             best_score = output(i);
         }
     }
-    int second_best_ind = best_ind == 0 ? 1 : 0;
+    int second_best_ind = (best_ind == 0) ? 1 : 0;
     double second_best_score = output(second_best_ind);
     for (int i = 0; i < output.size(); i++) {
         if (i == best_ind) {
@@ -65,6 +65,7 @@ Vec BayesianStrategy::domain_featurize( const Network& net, const Interval& inpu
             second_best_score = output(i);
         }
     }
+    // max -> best_score, second_max ->second_best_score
     double score_diff = (best_score - second_best_score) / std::abs(best_score);
     // Get some information about the gradient at the counterexample point
     Vec gradient = net.gradient(counterexample);
@@ -122,7 +123,7 @@ void BayesianStrategy::split_extract(
         dimension = dim2;
     }
     if (concretize)
-        split_offset = 0;
+        split_offset = 0; 
     else
         split_offset = getSplitOffset(ar.interval, dimension, strategy_output(0));
 }
@@ -407,8 +408,8 @@ AbstractResult verify_abstract(AbstractInput ai, int max_ind,
         ar.falsified = true;
         ar.verified = false;
         std::cout << "x" << std::flush;
-        // std::cout << " " << no << "|-> falsified!\n";
-        // std::cout << std::flush << "#" << no << ") verify " << ai.property << ":" << max_ind << " |-> falsified!\n" << std::flush;
+        std::cout << " " << no << "|-> falsified!\n";
+        std::cout << std::flush << "#" << no << ") verify " << ai.property << ":" << max_ind << " |-> falsified!\n" << std::flush;
         return ar;
     }
 
@@ -475,6 +476,7 @@ bool verify_with_strategy(const Vec& seed,
     // We use std::future for parallelism. It's possible to extend this with
     // some more heavy duty framework like MPI.
     std::vector<std::future<AbstractResult>> results;
+    // std::vector<AbstractResult> results;
     bool verified = false;
     bool falsified = false;
     std::cout << "NUM_THREADS=" << NUM_THREADS << std::endl;
@@ -486,16 +488,20 @@ bool verify_with_strategy(const Vec& seed,
                 AbstractInput input = to_verify.front();
                 to_verify.pop_front();
                 num_calls++;
-                // verify_abstract(input, max_ind, net, pgdAttack, pFunc, &interp, domain_strategy) 
+                // AbstractResult ar = verify_abstract(input, max_ind, net, pgdAttack, pFunc, &interp, domain_strategy);
+                // std::string msg = "?"; 
+                // if (ar.verified) msg="o"; 
+                // else if (ar.falsified) msg="x"; 
+                // std::cout << msg << std::flush;
+                // results.push_back(ar);
+
                 results.push_back(std::async(std::launch::async, verify_abstract, input,
                             max_ind, net, pgdAttack, pFunc, &interp, domain_strategy));
-                
-                std::string msg = "?"; 
                 size_t index=results.size()-1; 
+                std::string msg = "?"; 
                 if (results[index].get().verified) msg="o"; 
                 else if (results[index].get().falsified) msg="x"; 
                 std::cout << msg << std::flush;
-                
             }
             // If there are no more regions to verify then the property has been
             // proven.
